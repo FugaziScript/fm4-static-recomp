@@ -7,11 +7,51 @@ namespace Fm4StaticRecomp.Launcher.Tests.Settings;
 public class LauncherSettingsTests
 {
     [Fact]
+    public void Existing_settings_do_not_opt_into_audio_compatibility()
+    {
+        using var temp = new TempDir();
+        var path = Path.Combine(temp.Path, "launcher.toml");
+        Assert.False(LauncherSettings.Load(path).AudioCompatibility);
+        File.WriteAllText(path, "audio_pop_fix = true\ncompat = true\n");
+        var settings = LauncherSettings.Load(path);
+        Assert.False(settings.AudioCompatibility);
+        settings.AudioCompatibility = true;
+        settings.Save();
+        Assert.True(LauncherSettings.Load(path).AudioCompatibility);
+        settings.AudioCompatibility = false;
+        settings.Save();
+        Assert.False(LauncherSettings.Load(path).AudioCompatibility);
+    }
+
+    [Fact]
+    public void Music_folder_settings_survive_save_and_can_restore_originals_independently()
+    {
+        using var temp = new TempDir();
+        var path = Path.Combine(temp.Path, "launcher.toml");
+        var settings = LauncherSettings.Load(path);
+        Assert.Null(settings.MenuMusicFolder);
+        Assert.Null(settings.RaceMusicFolder);
+        settings.MenuMusicFolder = @"C:\Музыка\Menu tracks";
+        settings.RaceMusicFolder = @"D:\Music\Races";
+        settings.Save();
+        var loaded = LauncherSettings.Load(path);
+        Assert.Equal(settings.MenuMusicFolder, loaded.MenuMusicFolder);
+        Assert.Equal(settings.RaceMusicFolder, loaded.RaceMusicFolder);
+        loaded.MenuMusicFolder = null;
+        loaded.Save();
+        loaded = LauncherSettings.Load(path);
+        Assert.Null(loaded.MenuMusicFolder);
+        Assert.Equal(settings.RaceMusicFolder, loaded.RaceMusicFolder);
+    }
+
+    [Fact]
     public void A_missing_file_gives_the_defaults()
     {
         using var temp = new TempDir();
         var settings = LauncherSettings.Load(Path.Combine(temp.Path, "launcher.toml"));
         Assert.True(settings.SkipIntro);
+        Assert.False(settings.ShowFps);
+        Assert.True(settings.ControllerVibration);
         Assert.True(settings.AsyncReadbacks);
         Assert.False(settings.PresentViaDxgi);
         Assert.False(settings.Windowed);
@@ -20,6 +60,8 @@ public class LauncherSettingsTests
         Assert.False(settings.Diagnostic30Fps);
         Assert.False(settings.UseVisualStudioInstaller);
         Assert.Equal(0, settings.BuildJobs);
+        Assert.Equal(100, settings.VibrationStrength);
+        Assert.True(settings.AudioPopFix);
         Assert.Null(settings.ActiveProfile);
         Assert.Null(settings.ActiveVersion);
         Assert.Null(settings.PreviousVersion);
@@ -82,11 +124,15 @@ public class LauncherSettingsTests
         settings.ActiveVersion = "0.2.0";
         settings.PreviousVersion = "0.1.3";
         settings.SkipIntro = false;
+        settings.ShowFps = true;
+        settings.ControllerVibration = false;
         settings.AsyncReadbacks = false;
         settings.PresentViaDxgi = true;
         settings.Compat = true;
         settings.Diagnostic30Fps = true;
         settings.BuildJobs = 6;
+        settings.VibrationStrength = 160;
+        settings.AudioPopFix = false;
         settings.AcceptedMicrosoftLicence = "https://a https://b";
         settings.UseVisualStudioInstaller = true;
         settings.Language = "ru";
@@ -98,8 +144,12 @@ public class LauncherSettingsTests
         Assert.Equal(("main", "0.2.0", "0.1.3"), (read.ActiveProfile, read.ActiveVersion, read.PreviousVersion));
         Assert.Equal((false, false, true, true, true), (read.SkipIntro, read.AsyncReadbacks, read.PresentViaDxgi, read.Compat,
             read.UseVisualStudioInstaller));
+        Assert.True(read.ShowFps);
+        Assert.False(read.ControllerVibration);
         Assert.True(read.Diagnostic30Fps);
         Assert.Equal(6, read.BuildJobs);
+        Assert.Equal(160, read.VibrationStrength);
+        Assert.False(read.AudioPopFix);
         Assert.Equal("https://a https://b", read.AcceptedMicrosoftLicence);
         Assert.Equal("ru", read.Language);
         Assert.Equal(@"D:\FM4 Saves", read.SavesFolder);
@@ -136,6 +186,17 @@ public class LauncherSettingsTests
         using var temp = new TempDir();
         var settings = LauncherSettings.Load(temp.File("launcher.toml", "build_jobs = 99\n"u8.ToArray()));
         Assert.Equal(0, settings.BuildJobs);
+    }
+
+    [Theory]
+    [InlineData("vibration_strength = 201\n")]
+    [InlineData("vibration_strength = -1\n")]
+    [InlineData("vibration_strength = \"strong\"\n")]
+    public void A_vibration_strength_out_of_range_reads_as_the_games_own(string written)
+    {
+        using var temp = new TempDir();
+        var settings = LauncherSettings.Load(temp.File("launcher.toml", System.Text.Encoding.UTF8.GetBytes(written)));
+        Assert.Equal(100, settings.VibrationStrength);
     }
 
     [Fact]

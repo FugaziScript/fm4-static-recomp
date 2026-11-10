@@ -5,6 +5,8 @@ namespace Fm4StaticRecomp.Launcher.Core.Settings;
 public sealed class LauncherSettings
 {
     public const int MaximumBuildJobs = 32;
+    public const int GameVibrationStrength = 100;
+    public const int MaximumVibrationStrength = 200;
     private readonly string _path;
     private readonly TomlFile _file;
 
@@ -16,6 +18,12 @@ public sealed class LauncherSettings
         ActiveVersion = _file.Get("active_version");
         PreviousVersion = _file.Get("previous_version");
         SkipIntro = _file.Get("skip_intro") != "false";
+        ShowFps = _file.Get("show_fps") == "true";
+        ControllerVibration = _file.Get("controller_vibration") != "false";
+        AudioPopFix = _file.Get("audio_pop_fix") != "false";
+        AudioCompatibility = _file.Get("audio_compatibility") == "true";
+        MenuMusicFolder = _file.Get("menu_music_folder");
+        RaceMusicFolder = _file.Get("race_music_folder");
         AsyncReadbacks = _file.Get("async_readbacks") != "false";
         PresentViaDxgi = _file.Get("present_via_dxgi") == "true";
         Compat = _file.Get("compat") == "true";
@@ -23,6 +31,8 @@ public sealed class LauncherSettings
         Windowed = _file.Get("windowed") == "true";
         WindowSize = WindowSizes.Parse(_file.Get("window_size"));
         BuildJobs = int.TryParse(_file.Get("build_jobs"), out var jobs) && jobs is >= 0 and <= MaximumBuildJobs ? jobs : 0;
+        VibrationStrength = int.TryParse(_file.Get("vibration_strength"), out var vibration)
+                            && vibration is >= 0 and <= MaximumVibrationStrength ? vibration : GameVibrationStrength;
         AcceptedMicrosoftLicence = _file.Get("accepted_microsoft_licence");
         UseVisualStudioInstaller = _file.Get("toolchain_source") == "VisualStudio";
         Language = (GameLanguages.Find(_file.Get("language")) ?? GameLanguages.Default).Code;
@@ -34,6 +44,12 @@ public sealed class LauncherSettings
     public string? ActiveVersion { get; set; }
     public string? PreviousVersion { get; set; }
     public bool SkipIntro { get; set; }
+    public bool ShowFps { get; set; }
+    public bool ControllerVibration { get; set; }
+    public bool AudioPopFix { get; set; }
+    public bool AudioCompatibility { get; set; }
+    public string? MenuMusicFolder { get; set; }
+    public string? RaceMusicFolder { get; set; }
     public bool AsyncReadbacks { get; set; }
     public bool PresentViaDxgi { get; set; }
     public bool Compat { get; set; }
@@ -41,6 +57,7 @@ public sealed class LauncherSettings
     public bool Windowed { get; set; }
     public (int Width, int Height) WindowSize { get; set; }
     public int BuildJobs { get; set; }
+    public int VibrationStrength { get; set; }
     public string? AcceptedMicrosoftLicence { get; set; }
     public bool UseVisualStudioInstaller { get; set; }
     public string Language { get; set; }
@@ -62,6 +79,12 @@ public sealed class LauncherSettings
         Text("active_version", ActiveVersion);
         Text("previous_version", PreviousVersion);
         Flag("skip_intro", SkipIntro);
+        Flag("show_fps", ShowFps);
+        Flag("controller_vibration", ControllerVibration);
+        Flag("audio_pop_fix", AudioPopFix);
+        Flag("audio_compatibility", AudioCompatibility);
+        Text("menu_music_folder", MenuMusicFolder);
+        Text("race_music_folder", RaceMusicFolder);
         Flag("async_readbacks", AsyncReadbacks);
         Flag("present_via_dxgi", PresentViaDxgi);
         Flag("compat", Compat);
@@ -69,6 +92,7 @@ public sealed class LauncherSettings
         Flag("windowed", Windowed);
         Text("window_size", WindowSizes.Label(WindowSize));
         _file.Set("build_jobs", BuildJobs.ToString(System.Globalization.CultureInfo.InvariantCulture), quoted: false);
+        _file.Set("vibration_strength", VibrationStrength.ToString(System.Globalization.CultureInfo.InvariantCulture), quoted: false);
         Text("accepted_microsoft_licence", AcceptedMicrosoftLicence);
         _file.Set("toolchain_source", UseVisualStudioInstaller ? "VisualStudio" : "Feed", quoted: true);
         Text("language", Language);

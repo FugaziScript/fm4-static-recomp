@@ -34,9 +34,12 @@
 #include <rex/system/xmemory.h>
 #include <rex/ui/upscaler.h>
 
+#include "audio_gain.h"
+#include "custom_music.h"
 #include "car_dirt.h"
 #include "game_hooks.h"
 #include "guest_addresses.h"
+#include "input/controller_layout.h"
 #include "input/input_context.h"
 #include "input/prompt_strings.h"
 #include "scripted_input.h"
@@ -966,6 +969,18 @@ void Fm4CommandBufferClipRect(PPCRegister& r1) {
   StoreGuestWord(rect + 12, y + LoadGuestWord(viewport + 12));
 }
 
+// The keys tabs name each pad button by what the first player's pad layout makes it do.
+void Fm4ControllerLayoutApplied(PPCRegister& r4, PPCRegister& r5, PPCRegister& r31) {
+  FM4_HOOK_CENSUS();
+  const uint8_t* const player =
+      rex::system::kernel_state()->memory()->virtual_membase() + r31.u32;
+  const uint32_t index = LoadGuestWord(player + 0x1C);
+  REXLOG_INFO("Controller layout: player {} device {} layout {}", index, r5.u32, r4.u32);
+  if (index == 0 && r5.u32 == 0) {
+    fm4_static_recomp::input::SetControllerLayout(r4.u32);
+  }
+}
+
 namespace {
 
 // From a thumbnail's render until the game has saved it, every resolve is read
@@ -1032,11 +1047,71 @@ void Fm4ThumbnailRenderDone() {
   SetThumbnailRender(false);
 }
 
+namespace {
+std::atomic<uint32_t> g_fm4_music_manager{0};
+
+int FindMusicSlot(uint32_t stream) {
+  const uint32_t manager = g_fm4_music_manager.load(std::memory_order_acquire);
+  if (!manager) return -1;
+  const auto* base = rex::system::kernel_state()->memory()->virtual_membase();
+  for (size_t slot = 0; slot < 4; ++slot) {
+    if (LoadGuestWord(base + manager + 0x4C + 4 * slot) == stream) return static_cast<int>(slot);
+  }
+  return -1;
+}
+}
+
+void Fm4MusicUpdate(PPCRegister& r31) {
+  FM4_HOOK_CENSUS();
+  if (!fm4_static_recomp::CustomMusicEnabled()) return;
+  g_fm4_music_manager.store(r31.u32, std::memory_order_release);
+  const auto* base = rex::system::kernel_state()->memory()->virtual_membase();
+  std::array<fm4_static_recomp::MusicStream, 4> streams{};
+  for (size_t slot = 0; slot < streams.size(); ++slot) {
+    auto& stream = streams[slot];
+    stream.object = LoadGuestWord(base + r31.u32 + 0x4C + 4 * slot);
+    if (!stream.object) continue;
+    stream.playback = LoadGuestWord(base + stream.object + 0x0C);
+    stream.volume = std::bit_cast<float>(LoadGuestWord(base + stream.object + 0x1C));
+    stream.paused = base[stream.object + 0x14] != 0;
+  }
+  fm4_static_recomp::ObserveMusicStreams(r31.u32, streams);
+}
+
+void Fm4MusicStreamGain(PPCRegister& r31, PPCRegister& f1) {
+  FM4_HOOK_CENSUS();
+  if (!fm4_static_recomp::CustomMusicEnabled()) return;
+  const int slot = FindMusicSlot(r31.u32);
+  if (slot >= 0 && fm4_static_recomp::ReplacesMusicSlot(slot)) f1.f64 = 0.0;
+}
+
+void Fm4MusicStreamPlaying(PPCRegister& r31, PPCRegister& r3) {
+  FM4_HOOK_CENSUS();
+  if (!fm4_static_recomp::CustomMusicEnabled()) return;
+  const int slot = FindMusicSlot(r31.u32);
+  bool playing = false;
+  if (slot >= 0 && fm4_static_recomp::CustomMusicPlaying(slot, r31.u32, playing)) {
+    r3.u64 = playing ? 1 : 0;
+  }
+}
+
+void Fm4MusicMovieStarted(PPCRegister& r31) {
+  FM4_HOOK_CENSUS();
+  fm4_static_recomp::SetCustomMusicMoviePlaying(r31.u32, true);
+}
+
+void Fm4MusicMovieStopped(PPCRegister& r31) {
+  FM4_HOOK_CENSUS();
+  fm4_static_recomp::SetCustomMusicMoviePlaying(r31.u32, false);
+}
+
 void Fm4MainLoopSession(PPCRegister& r11) {
   FM4_HOOK_CENSUS();
   const bool race = r11.u32 != 0;
   g_race_session.store(race, std::memory_order_relaxed);
   fm4_static_recomp::input::GameInputContext().SetRaceSession(race);
+  fm4_static_recomp::SetCustomMusicRaceSession(race);
+  fm4_static_recomp::UpdateCustomMusic();
   {
     const std::lock_guard lock(g_input_tick_mutex);
     if (g_input_tick) {
@@ -1069,6 +1144,12 @@ void Fm4RaceMenuSceneCreated(PPCRegister& r3) {
   FM4_HOOK_CENSUS();
   fm4_static_recomp::input::GameInputContext().RaceMenuSceneCreated(r3.u32);
   REXLOG_INFO("Race menu scene created {:08X}", r3.u32);
+}
+
+void Fm4RaceSubmenuSceneCreated(PPCRegister& r3) {
+  FM4_HOOK_CENSUS();
+  fm4_static_recomp::input::GameInputContext().RaceSubmenuSceneCreated(r3.u32);
+  REXLOG_INFO("Race submenu scene created {:08X}", r3.u32);
 }
 
 void Fm4RaceMenuSceneDestroyed(PPCRegister& r3) {
@@ -1248,4 +1329,130 @@ bool Fm4OpenGraphicsOption(PPCRegister& r4) {
     g_graphics_page_opener();
   }
   return true;
+}
+
+REXCVAR_DEFINE_BOOL(fm4_audio_compatibility, false, "Forza Motorsport 4",
+                    "Opt-in faster, result-preserving audio mixer math for processors without FMA")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
+
+// FMOD mixes in 256-sample blocks and starts, stops and re-seeks voices between them without a
+// fade, so wherever that happens to a loud voice the mix steps at the block's first samples: the
+// clicks while revving at the limiter and shifting, where the top engine layers and the turbo are
+// restarted every few blocks (the same on a console). The render thread lays each mixed block out
+// as 6 channels of 256 big-endian floats and hands it to 0x82C56B78 before submitting it; there,
+// a step at a block's start well above the channel's own sample-to-sample movement is taken out:
+// its first samples are bridged from the block before, and the offset that is left fades out over
+// the next 128 samples. AUDIO POP FIX in the launcher's SETTINGS switches this and the decoder's
+// loop crossfade (xma_loop_end_crossfade, see InstallAudioPopFix) together.
+REXCVAR_DEFINE_BOOL(fm4_audio_pop_fix, true, "Forza Motorsport 4",
+                    "Smooth the pops of the game's audio, heard on a console too: crossfade each "
+                    "loop of a sound into its start, and the steps FMOD leaves at the start of a "
+                    "mix block when it starts, stops or re-seeks a voice while revving and shifting");
+
+namespace {
+constexpr uint32_t kMixChannels = 6, kMixBlock = 256;
+
+struct MixEdgeState {
+  float y1 = 0, y2 = 0;  // the last two samples of the block before
+  float rough = 0;       // the RMS second difference of the block before
+  bool valid = false;
+};
+std::array<MixEdgeState, kMixChannels> g_mix_edges;
+
+void DeclickBlockStart(float* x, MixEdgeState& state) {
+  constexpr uint32_t kBridge = 4, kFade = 128;
+  constexpr float kThreshold = 6.0f, kFloor = 0.003f;
+  if (state.valid) {
+    float prev2 = state.y2, prev1 = state.y1, peak = 0;
+    for (uint32_t i = 0; i <= kBridge; i++) {
+      peak = std::max(peak, std::fabs(x[i] - 2.0f * prev1 + prev2));
+      prev2 = prev1;
+      prev1 = x[i];
+    }
+    if (peak > kThreshold * state.rough && peak > kFloor) {
+      // The step: where the block is once past the bridge, against where the block before was
+      // heading (the trend of both sides averaged across the gap).
+      constexpr float span = float(kBridge + 1);
+      const float slope_before = state.y1 - state.y2, slope_after = x[kBridge + 1] - x[kBridge];
+      const float step = x[kBridge] - state.y1 - span * 0.5f * (slope_before + slope_after);
+      const float end = x[kBridge] - step;
+      for (uint32_t i = 0; i < kBridge; i++) {
+        const float u = float(i + 1) / span, u2 = u * u, u3 = u2 * u;
+        x[i] = (2 * u3 - 3 * u2 + 1) * state.y1 + (u3 - 2 * u2 + u) * span * slope_before +
+               (-2 * u3 + 3 * u2) * end + (u3 - u2) * span * slope_after;
+      }
+      for (uint32_t i = 0; i < kFade; i++) {
+        const float t = float(i) / float(kFade);
+        x[kBridge + i] -= step * (2 * t * t * t - 3 * t * t + 1);
+      }
+    }
+  }
+  float sum = 0;
+  for (uint32_t i = 2; i < kMixBlock; i++) {
+    const float e = x[i] - 2.0f * x[i - 1] + x[i - 2];
+    sum += e * e;
+  }
+  state.rough = std::sqrt(sum / float(kMixBlock - 2));
+  state.y1 = x[kMixBlock - 1];
+  state.y2 = x[kMixBlock - 2];
+  state.valid = true;
+}
+}  // namespace
+
+void Fm4AudioMixBlock(PPCContext&, uint8_t* base, PPCRegister& r4) {
+  FM4_HOOK_CENSUS();
+  const uint32_t frame = r4.u32;
+  if (REXCVAR_GET(fm4_audio_pop_fix) && frame) {
+    for (uint32_t c = 0; c < kMixChannels; c++) {
+      uint8_t* const samples = base + frame + c * kMixBlock * 4;
+      std::array<float, kMixBlock> x;
+      for (uint32_t i = 0; i < kMixBlock; i++) {
+        x[i] = std::bit_cast<float>(LoadGuestWord(samples + 4 * i));
+      }
+      DeclickBlockStart(x.data(), g_mix_edges[c]);
+      for (uint32_t i = 0; i < kMixBlock; i++) {
+        StoreGuestWord(samples + 4 * i, std::bit_cast<uint32_t>(x[i]));
+      }
+    }
+  } else {
+    for (MixEdgeState& state : g_mix_edges) state.valid = false;
+  }
+}
+
+namespace fm4_static_recomp {
+
+void InstallAudioCompatibility() {
+  rex::ppc::g_exact_single_fma.store(REXCVAR_GET(fm4_audio_compatibility), std::memory_order_relaxed);
+  REXLOG_INFO("Audio compatibility: {}", REXCVAR_GET(fm4_audio_compatibility));
+}
+
+void InstallAudioPopFix() {
+  // A launch option for the crossfade is a diagnostic and wins over AUDIO POP FIX.
+  constexpr const char* kCrossfade = "xma_loop_end_crossfade";
+  if (!rex::cvar::GetFlagInfo(kCrossfade)) {
+    REXLOG_WARN("Audio pop fix: the runtime has no {}; AUDIO POP FIX smooths the mix blocks only",
+                kCrossfade);
+    return;
+  }
+  if (rex::cvar::GetFlagSource(kCrossfade) == rex::cvar::Source::kCommandLine) {
+    REXLOG_INFO("Audio pop fix: {} comes from the command line", kCrossfade);
+    return;
+  }
+  const std::string value = rex::cvar::GetFlagByName("fm4_audio_pop_fix");
+  if (!rex::cvar::SetFlagByName(kCrossfade, value)) {
+    REXLOG_ERROR("Audio pop fix: {} refused {}", kCrossfade, value);
+  }
+  REXLOG_INFO("Audio pop fix: {}", value);
+}
+
+}  // namespace fm4_static_recomp
+
+bool Fm4AudioStableGain(PPCContext&, uint8_t* base, PPCRegister& r21, PPCRegister& r23,
+                       PPCRegister& r27, PPCRegister& r28, PPCRegister& r31) {
+  if (!rex::ppc::g_exact_single_fma.load(std::memory_order_relaxed)) return false;
+  const uint32_t processed = fm4_static_recomp::ProcessStableAudioGain(
+      base + r31.u32, base + r28.u32, base + uint32_t(r28.u32 + r27.u32), r21.u32, r23.u32);
+  r21.u64 -= processed;
+  r28.u64 += uint64_t(processed) * r23.u32 * 4;
+  return r21.u32 == 0;
 }

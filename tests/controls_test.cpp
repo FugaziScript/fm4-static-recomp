@@ -64,8 +64,11 @@ TEST_CASE("The default keys follow the Forza Horizon 6 layout on FM4's pad layou
   const BindingSet& menu = controls.menu;
   CHECK(Keys(menu, PadControl::kA).starts_with("Return"));
   CHECK(Keys(menu, PadControl::kB) == "Escape,Backspace");
-  CHECK(Contains(Keys(menu, PadControl::kLStickUp), "W"));
-  CHECK(Contains(Keys(menu, PadControl::kDpadUp), "Up"));
+  // WASD press the D-pad like the arrows: FM4's sliders step on a D-pad tap but
+  // not on a short push of the stick.
+  CHECK(Keys(menu, PadControl::kDpadUp) == "Up,W");
+  CHECK(Keys(menu, PadControl::kDpadLeft) == "Left,A");
+  CHECK(Keys(menu, PadControl::kLStickUp) == "Numpad8");
 }
 
 TEST_CASE("Every pad control has a key in both sets", "[controls]") {
@@ -101,6 +104,78 @@ TEST_CASE("A file entry overrides one binding", "[controls]") {
   CHECK(controls.driving.keys == defaults.driving.keys);
 }
 
+TEST_CASE("A default control keeps its other keys when the player takes one", "[controls]") {
+  const Controls controls = LoadFrom("menu_x = \"Space\"\n");
+  CHECK(Keys(controls.menu, PadControl::kX) == "Space");
+  CHECK(Keys(controls.menu, PadControl::kA) == "Return");
+}
+
+TEST_CASE("A default control whose only key the player takes gets the taker's old key",
+          "[controls]") {
+  const Controls controls = LoadFrom("driving_b = \"C\"\n");
+  CHECK(Keys(controls.driving, PadControl::kB) == "C");
+  CHECK(Keys(controls.driving, PadControl::kRightShoulder) == "E");
+}
+
+TEST_CASE("Without a free old key of the taker a spare key that nothing uses is taken",
+          "[controls]") {
+  const Controls controls =
+      LoadFrom("driving_b = \"C\"\ndriving_x = \"E\"\ndriving_y = \"F\"\n");
+  CHECK(Keys(controls.driving, PadControl::kRightShoulder) == "Z");
+}
+
+TEST_CASE("A key under a modifier counts as that key", "[controls]") {
+  CHECK(Keys(LoadFrom("driving_b = \"Control+C\"\n").driving, PadControl::kRightShoulder) == "E");
+  const Controls controls =
+      LoadFrom("driving_b = \"C\"\ndriving_x = \"E\"\ndriving_y = \"Shift+F\"\n");
+  CHECK(Keys(controls.driving, PadControl::kRightShoulder) == "Z");
+}
+
+TEST_CASE("A driving line leaves the menu keys alone", "[controls]") {
+  CHECK(LoadFrom("driving_b = \"C\"\n").menu.keys == DefaultControls().menu.keys);
+}
+
+TEST_CASE("The menu set swaps like the driving set", "[controls]") {
+  const Controls controls = LoadFrom("menu_a = \"E\"\n");
+  CHECK(Keys(controls.menu, PadControl::kA) == "E");
+  CHECK(Keys(controls.menu, PadControl::kRightShoulder) == "Return");
+}
+
+TEST_CASE("With every spare key taken a control shares its default key", "[controls]") {
+  const Controls controls = LoadFrom(
+      "driving_a = \"Space,C,F,Z,X,B,N,M,Y,U,O,H,V,R,T,G,J,K,L,I,P,1,2,3,4,5,6\"\n");
+  CHECK(Keys(controls.driving, PadControl::kRightShoulder) == "C");
+  CHECK(Keys(controls.driving, PadControl::kY) == "R");
+}
+
+TEST_CASE("The player's own lines keep a key they share", "[controls]") {
+  const Controls controls = LoadFrom("driving_a = \"C\"\ndriving_b = \"C\"\n");
+  CHECK(Keys(controls.driving, PadControl::kA) == "C");
+  CHECK(Keys(controls.driving, PadControl::kB) == "C");
+  CHECK(Keys(controls.driving, PadControl::kRightShoulder) == "Space");
+}
+
+TEST_CASE("Rebinding leaves every control a key and no key on two controls", "[controls]") {
+  // A player's file from issue #59.
+  const Controls controls = LoadFrom(
+      "driving_rstick_left = \"Q\"\ndriving_rstick_right = \"E\"\n"
+      "driving_rstick_down = \"Shift\"\ndriving_x = \"X\"\ndriving_b = \"C\"\n");
+  const BindingSet& driving = controls.driving;
+  CHECK(Keys(driving, PadControl::kLeftShoulder) == "Down");
+  CHECK(Keys(driving, PadControl::kRightShoulder) == "F");
+  std::set<std::string> seen;
+  for (size_t i = 0; i < size_t(PadControl::kCount); ++i) {
+    INFO("control " << i << ": " << driving.keys[i]);
+    CHECK_FALSE(driving.keys[i].empty());
+    std::string_view bind = driving.keys[i];
+    while (!bind.empty()) {
+      const size_t comma = bind.find(',');
+      CHECK(seen.insert(std::string(bind.substr(0, comma))).second);
+      bind = comma == std::string_view::npos ? std::string_view() : bind.substr(comma + 1);
+    }
+  }
+}
+
 TEST_CASE("Unknown names and empty values keep the defaults", "[controls]") {
   const Controls controls = LoadFrom("menu_zz = \"Q\"\nmenu_b = \"\"\n");
   const Controls defaults = DefaultControls();
@@ -113,6 +188,17 @@ TEST_CASE("Ramp rates are read from the file", "[controls]") {
   CHECK(LoadFrom("ramp_steer_seconds = abc\n").ramp.steer_seconds ==
         DefaultControls().ramp.steer_seconds);
   CHECK(LoadFrom("ramp_look_seconds = 0.25\n").ramp.look_seconds == 0.25);
+}
+
+TEST_CASE("Ramp rates accept decimal notation and reject malformed or out-of-range values", "[controls]") {
+  CHECK(LoadFrom("ramp_steer_seconds = 3e-1\n").ramp.steer_seconds == 0.3);
+  CHECK(LoadFrom("ramp_steer_seconds = 0\n").ramp.steer_seconds == 0.0);
+  for (std::string_view token : {"+0.3", " 0.3", "0.3 ", "0x1p0", "-0.5", "0.3tail",
+                                 "1e9999", "1e-9999", "0,3", "nan"}) {
+    CAPTURE(token);
+    CHECK(LoadFrom("ramp_steer_seconds = \"" + std::string(token) + "\"\n").ramp.steer_seconds ==
+          DefaultControls().ramp.steer_seconds);
+  }
 }
 
 TEST_CASE("A missing file loads the defaults without writing one", "[controls]") {

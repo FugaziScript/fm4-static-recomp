@@ -83,10 +83,10 @@ stay on your PC; `tools\microsoft-licences.ps1` prints the current links.
    stall while shaders compile. It adds the shaders and pipelines listed in
    `config\shaders` to your cache and never removes anything; the repository ships only
    that list (hashes, render states, edit positions), no game data. The first launch then
-   compiles the listed pipelines for your GPU before the title screen: up to 40 seconds on
-   the [test bench](performance.md#test-bench), longer on a processor with fewer threads; the
-   game may look frozen meanwhile. `-SkipShaderCache` leaves it out. Pass the same `-StateRoot` you play with so the cache
-   lands there.
+   compiles the listed pipelines for your GPU before the title screen, with a responsive
+   progress window. The time depends on your computer and graphics driver. Completed work is
+   saved every 10 seconds and at the end for reuse on later starts. `-SkipShaderCache` leaves
+   this preparation out. Pass the same `-StateRoot` you play with so the cache lands there.
 
 </details>
 
@@ -121,9 +121,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\run.ps1 -GameRoot D:\F
     --fm4_disc2_packages=D:\FM4\disc2 --fm4_dlc_packages=D:\FM4\dlc
 ```
 
-The packages are installed into your save folder in a few seconds; installed ones are
-skipped, so passing the options every time does no harm. `.local\state\logs\runtime.log`
-ends the install with a `Content: ...` summary.
+The packages are installed into your save folder in a few seconds; existing package files are
+skipped. Installed DLC is treated as fully unlocked: every normal launch repairs incomplete
+license information, even without these install options or the original packages. This leaves
+car files and saves unchanged. `.local\state\logs\runtime.log`
+records the license scan and the install summary.
 
 ## Updating
 

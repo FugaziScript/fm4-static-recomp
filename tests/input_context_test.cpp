@@ -42,7 +42,7 @@ TEST_CASE("A key held across a switch releases with the key", "[input_context]")
   CHECK(pressed() == std::vector<size_t>{size_t(PadControl::kRightTrigger)});
   // The pause menu opens with W still held: W moves the selection now.
   switcher.Update(InputContext::kMenu);
-  CHECK(pressed() == std::vector<size_t>{size_t(PadControl::kLStickUp)});
+  CHECK(pressed() == std::vector<size_t>{size_t(PadControl::kDpadUp)});
   key_down[static_cast<uint16_t>(rex::ui::VirtualKey::kW)] = false;
   CHECK(pressed().empty());
 }
@@ -75,5 +75,18 @@ TEST_CASE("Leaving a race forgets its menu scenes", "[input_context]") {
   state.RaceMenuSceneCreated(0x100);
   state.SetRaceSession(false);
   state.SetRaceSession(true);
+  CHECK(state.Current() == InputContext::kDriving);
+}
+
+TEST_CASE("A race submenu counts only while a race runs", "[input_context]") {
+  // The same AUDIO / HUD / TUNE scenes open from the front end, where nothing must outlive
+  // into the next race.
+  InputContextState state;
+  state.RaceSubmenuSceneCreated(0x100);
+  state.SetRaceSession(true);
+  CHECK(state.Current() == InputContext::kDriving);
+  state.RaceSubmenuSceneCreated(0x200);
+  CHECK(state.Current() == InputContext::kMenu);
+  state.RaceMenuSceneDestroyed(0x200);
   CHECK(state.Current() == InputContext::kDriving);
 }

@@ -17,6 +17,12 @@ or in the launcher's SETTINGS.
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |
+| `--fm4_show_fps=true` | Show the [frame rate overlay](../DEBUG_OPTIONS.md#reading-the-fps-overlay) from the start (F3 shows and hides it). In the launcher: SETTINGS → ADVANCED → SHOW FPS |
+| `--controller_vibration=false` | Turns all controller vibration off (VIBRATION STRENGTH keeps its value). In the launcher: SETTINGS → CONTROLLER VIBRATION |
+| `--fm4_audio_compatibility=true` | Opt-in audio mixer path for repeated or slowed race audio, most of all on processors without FMA instructions (most made before 2013, and some Celeron and Pentium models). Off by default. In the launcher: SETTINGS → ADVANCED → AUDIO FOR OLDER CPUS. Restart the game after changing it |
+| `--fm4_audio_pop_fix=false` | AUDIO POP FIX off: the engine sounds pop where their loops start over and click when revving and shifting, as on a console. In the launcher: SETTINGS → ADVANCED → AUDIO POP FIX |
+| `--fm4_menu_music_folder=<folder>` | Shuffled menu MP3/WAV playlist; empty uses original music. See [Custom soundtrack](#custom-soundtrack) |
+| `--fm4_race_music_folder=<folder>` | Shuffled race MP3/WAV playlist; empty uses original music |
 | `--fm4_language=<code>` | The game's language (see [Languages](#languages)) |
 | `--fm4_config_root=<folder>` | Where `graphics.toml` and `controls.toml` live (default: the state folder's `config`) |
 | `--fh1_async_readbacks=false` | Turn off asynchronous readbacks, if you ever see a corrupted texture |
@@ -24,7 +30,24 @@ or in the launcher's SETTINGS.
 | `--window_width=<n>`, `--window_height=<n>` | The window's size, multiplied by Windows' display scale (at 150 %, 1600 opens 2400 pixels wide). In the launcher, WINDOW SIZE is in real pixels |
 | `--window_aspect_ratio=16:9` | The shape the window keeps while resized and at its start (the default); `free` leaves it free, with black bars around the 16:9 picture |
 | `--vulkan_present_via_dxgi=true` | Present through DXGI, for [frame generation tools](#frame-generation) |
+| `--pad_rumble_strength=0..200` | Controller vibration in percent of the game's own (`100`); above 100 each motor tops out at full speed, `0` turns it off. In the launcher: SETTINGS → VIBRATION STRENGTH |
 | `--pad_chord_game_menu=BACK+START` | Controller buttons held together that open the GRAPHICS page (`A`, `B`, `X`, `Y`, `LB`, `RB`, `LS`, `RS`, `BACK`, `START`, `UP`, `DOWN`, `LEFT`, `RIGHT` joined by `+`); empty turns it off |
+
+## Custom soundtrack
+
+Open launcher SETTINGS → CUSTOM SOUNDTRACK and choose separate **MENU MUSIC FOLDER**
+and **RACE MUSIC FOLDER** locations, then SAVE and restart the game. Each folder is shuffled,
+including its subfolders. MP3 and WAV (16-bit PCM or 32-bit float) are supported.
+
+The game controls music timing, activity fades and music volume. Starting or restarting a race,
+or switching between menus and racing, chooses a fresh shuffled track. Between songs, music
+fades out for 2 seconds, stays silent for 0.5 seconds, then fades in for 2 seconds. Engine
+sounds and other effects keep playing normally. Choose **ORIGINAL MUSIC** for either folder
+to restore that part of the original soundtrack. An empty or unreadable folder also uses
+the original soundtrack.
+
+The equivalent command-line options are `--fm4_menu_music_folder="D:\Music\Menus"` and
+`--fm4_race_music_folder="D:\Music\Racing"`. Leave an option unset or empty for original music.
 
 ## Languages
 
@@ -135,8 +158,11 @@ the command line. Two exceptions:
   under the launcher, `.local\state\config\graphics.toml` in a manual install) belongs to that
   page, not to the options above: do not add other options to it.
 - **The launcher's own options** are passed on its command line and beat environment
-  variables: the paths, `fm4_language`, `fm4_skip_intro`, `fh1_async_readbacks`,
-  `vulkan_present_via_dxgi`, `fullscreen`, `window_width`, `window_height`, and COMPAT MODE's list. Set those in its SETTINGS, or replace one in COMMAND-LINE OPTIONS.
+  variables: the paths, `user_name`, `fm4_language`, `fm4_skip_intro`, `fh1_async_readbacks`,
+  `vulkan_present_via_dxgi`, `fm4_frame_rate` (30 FPS (DIAGNOSTIC)), `fm4_show_fps`,
+  `controller_vibration`, `pad_rumble_strength`,
+  `fm4_audio_compatibility`, `fm4_audio_pop_fix`, the two music folders, `fullscreen`, `window_width`,
+  `window_height`, `fm4_car_min_substeps` on Project Forza Plus 4, and COMPAT MODE's list. Set those in its SETTINGS, or replace one in COMMAND-LINE OPTIONS.
 
 ### Checking that an option took effect
 

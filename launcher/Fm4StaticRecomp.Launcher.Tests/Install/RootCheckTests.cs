@@ -1,6 +1,8 @@
 // Copyright (c) 2026, i2kiselev
 // BSD 3-Clause License: see LICENSE in the repository root.
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using Fm4StaticRecomp.Launcher.Core.Install;
 using Fm4StaticRecomp.Launcher.Core.Platform;
@@ -16,10 +18,11 @@ public class RootCheckTests
     [InlineData(@"C:\Users\a\AppData\Local\Temp\Rar$EX01\data", "temporary", " Move the launcher's folder and start it again.")]
     [InlineData(@"C:\Games\FM4 [1]\data", "[ or ]", " Move the installation to a folder whose path has no square brackets.")]
     [InlineData(@"C:\Игры (1)\data", "non-English", " Move the installation to a folder whose path has no parentheses.")]
-    [InlineData(@"D:\Games\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\data", "54",
+    [InlineData(@"D:\Games\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\data", "91",
         @" Move the launcher's folder to a short path such as D:\FM4 and start it again.")]
     public void Refuses_with_the_reason_and_one_way_out(string root, string reason, string advice)
     {
+        if (!OperatingSystem.IsWindows()) return;
         var problem = RootCheck.Problem(root, Env)!;
         Assert.Contains(reason, problem);
         Assert.StartsWith($"The launcher cannot install into {root}: ", problem);
@@ -45,6 +48,21 @@ public class RootCheckTests
         {
             foreach (var name in new[] { "Тест 1", "Games (1)" })
                 Assert.Null(RootCheck.Problem(Path.Combine(parent, name, "data"), Env));
+        }
+        finally { Directory.Delete(parent, recursive: true); }
+    }
+
+    [Fact]
+    public void Accepts_a_path_of_the_maximum_length_and_refuses_a_longer_one()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var parent = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "fm4t-" + Guid.NewGuid().ToString("N")[..6]);
+        try
+        {
+            var root = Path.Combine(parent, new string('a', RootCheck.MaximumLength - parent.Length - @"\\data".Length), "data");
+            Assert.Equal(91, root.Length);
+            Assert.Null(RootCheck.Problem(root, Env));
+            Assert.Contains("92 characters long", RootCheck.Problem(root.Replace(@"\data", @"a\data"), Env)!);
         }
         finally { Directory.Delete(parent, recursive: true); }
     }
@@ -76,6 +94,7 @@ public class RootCheckTests
             var root = Path.Combine(parent, "data");
             var problem = RootCheck.Problem(root, Env with { CreateLink = (_, _) => throw new IOException("not supported") })!;
             Assert.Contains("folder links", problem);
+            Assert.Contains("(not supported); an NTFS drive can, FAT32, exFAT and network drives cannot.", problem);
             Assert.Empty(Directory.GetFileSystemEntries(root));
         }
         finally { Directory.Delete(parent, recursive: true); }
@@ -101,6 +120,22 @@ public class RootCheckTests
     public void Refuses_a_folder_it_cannot_write()
     {
         if (!OperatingSystem.IsWindows()) return;
-        Assert.NotNull(RootCheck.Problem(@"C:\Windows\System32\fm4-test\data", Env with { Protected = [] }));
+        // An explicit deny binds an administrator too (CI runs elevated), unlike System32's permissions.
+        var parent = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "fm4t-" + Guid.NewGuid().ToString("N")[..6]));
+        var deny = new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!,
+            FileSystemRights.CreateFiles | FileSystemRights.CreateDirectories, AccessControlType.Deny);
+        var acl = parent.GetAccessControl();
+        acl.AddAccessRule(deny);
+        parent.SetAccessControl(acl);
+        try
+        {
+            Assert.NotNull(RootCheck.Problem(Path.Combine(parent.FullName, "data"), Env with { Protected = [] }));
+        }
+        finally
+        {
+            acl.RemoveAccessRule(deny);
+            parent.SetAccessControl(acl);
+            parent.Delete(recursive: true);
+        }
     }
 }

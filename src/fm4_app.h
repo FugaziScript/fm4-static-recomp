@@ -2,12 +2,15 @@
 // Copyright (c) 2026, i2kiselev (BSD 3-Clause: see LICENSE in the repository root).
 #pragma once
 
+#include "custom_music.h"
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <vector>
@@ -23,6 +26,7 @@
 #include <rex/ui/flags.h>
 #include <rex/ui/keybinds.h>
 #include <rex/ui/overlay/achievement_notification.h>
+#include <rex/ui/overlay/debug_overlay.h>
 #include <rex/ui/vulkan/provider.h>
 #include <rex/ui/window.h>
 #include <rex/ui/window_listener.h>
@@ -36,6 +40,7 @@
 #include "game_hooks.h"
 #include "game_language.h"
 #include "guest_addresses.h"
+#include "input/controller_layout.h"
 #include "input/controls.h"
 #include "input/input_context.h"
 #include "input/keyboard_ramp.h"
@@ -45,7 +50,9 @@
 #include "shader_cache/cache_writer.h"
 #include "shader_cache/disc_shaders.h"
 #include "tool_mode.h"
+#include "ui/controls_page.h"
 #include "ui/graphics_page.h"
+#include "ui/guest_frame_stats.h"
 #include "ui/hostui/host_ui.h"
 #include "ui/hostui/ui_fonts.h"
 
@@ -55,6 +62,8 @@ REXCVAR_DECLARE(std::string, fm4_dump_disc_shaders);
 REXCVAR_DECLARE(std::string, fm4_build_shader_cache);
 REXCVAR_DECLARE(std::string, fm4_shader_list_dir);
 REXCVAR_DECLARE(std::string, fm4_export_ui_fonts);
+REXCVAR_DECLARE(bool, fm4_show_fps);
+REXCVAR_DECLARE(bool, controller_vibration);
 
 // Alt+Enter, ahead of the GRAPHICS page and the keyboard driver: Enter alone is START and the
 // menus' A. Upstream's SDK has no such key today; if a merge brings one, keep only one.
@@ -136,7 +145,18 @@ class Fm4App final : public rex::ReXApp {
     } else {
       REXLOG_ERROR("Graphics settings: cannot read {}", graphics_config_->path().string());
     }
+    // Count new guest images, independently of how often the host redraws its UI.
+    guest_frame_count_.store(0, std::memory_order_relaxed);
+    config.graphics->SetNativeGuestOutputRenderer(
+        [](const rex::system::NativeGuestOutputRenderContext& context) {
+          if (context.phase == rex::system::NativeGuestOutputPhase::kPresented) {
+            guest_frame_count_.fetch_add(1, std::memory_order_relaxed);
+          }
+          return false;
+        });
     fm4_static_recomp::InstallPixelShaderSwitches();
+    fm4_static_recomp::InstallAudioPopFix();
+    fm4_static_recomp::InstallAudioCompatibility();
     rex::kernel::xboxkrnl::SetGuestFileOpenObserver([](std::string_view guest_path) {
       fm4_static_recomp::NoteGuestFileOpen(guest_path);
       fm4_static_recomp::LogFileOpen(guest_path);
@@ -191,6 +211,12 @@ class Fm4App final : public rex::ReXApp {
     return true;
   }
 
+  bool ShouldStartModuleThread() override {
+    // Frame replay owns captured guest memory; running the title concurrently
+    // can overwrite it while the GPU replays the recorded commands.
+    return rex::cvar::GetFlagByName("fh1_frame_replay").empty();
+  }
+
   void LaunchModule() override {
     if (fm4_static_recomp::CurrentToolMode() == fm4_static_recomp::ToolMode::kNone) {
       rex::ReXApp::LaunchModule();
@@ -225,6 +251,32 @@ class Fm4App final : public rex::ReXApp {
       }
     });
     InstallKeyboard();
+    fm4_static_recomp::InitializeCustomMusic();
+    if (!REXCVAR_GET(controller_vibration)) {
+      rex::cvar::SetFlagByName("pad_rumble_strength", "0");
+    }
+    SetGuestFrameStats([sampler = fm4_static_recomp::ui::GuestFrameStats{}]() mutable {
+      const auto stats = sampler.Sample(guest_frame_count_.load(std::memory_order_relaxed),
+                                        std::chrono::steady_clock::now());
+      return rex::ui::FrameStats{
+          .frame_time_ms = stats.frame_time_ms,
+          .fps = stats.fps,
+          .frame_count = stats.frame_count,
+      };
+    });
+    if (REXCVAR_GET(fm4_show_fps)) {
+      rex::ui::SetBuildLabel(" ");
+      if (rex::ui::Window* const window = this->window()) {
+        window->app_context().CallInUIThreadDeferred([] {
+          rex::ui::TriggerBind("bind_debug_overlay");
+        });
+      }
+    }
+    rex::ui::RegisterBind("bind_toggle_fullscreen", "F11", "Toggle fullscreen", [this] {
+      if (rex::ui::Window* const window = this->window()) {
+        window->SetFullscreen(!window->IsFullscreen());
+      }
+    });
     // The SDK's pad_chord_game_menu runs the bind of this name.
     rex::ui::RegisterBind("bind_game_menu", "F6", "Toggle the GRAPHICS page", [this] {
       // A START pressed before BACK has already closed the page by itself.
@@ -240,10 +292,16 @@ class Fm4App final : public rex::ReXApp {
   }
 
   void OnShutdown() override {
+    rex::ui::UnregisterBind("bind_toggle_fullscreen");
     rex::ui::UnregisterBind("bind_game_menu");
+    fm4_static_recomp::ShutdownCustomMusic();
     fm4_static_recomp::SetInputTick(nullptr);
     fm4_static_recomp::SetPromptTextSource(nullptr);
     fm4_static_recomp::SetGraphicsPageOpener(nullptr);
+    if (auto* const input_system =
+            runtime() ? static_cast<rex::input::InputSystem*>(runtime()->input_system()) : nullptr) {
+      input_system->SetKeyboardStateFilter(nullptr);
+    }
     host_ui_.reset();
     fullscreen_toggle_.reset();
   }
@@ -258,6 +316,8 @@ class Fm4App final : public rex::ReXApp {
   }
 
  private:
+  inline static std::atomic<uint64_t> guest_frame_count_{0};
+
   // The game code is recompiled from one code image's default.xex; the other image's would
   // run against it, so a game folder of another release is refused before the game starts.
   static bool GameFolderMatchesBuild(const std::filesystem::path& game_root) {
@@ -280,18 +340,18 @@ class Fm4App final : public rex::ReXApp {
     binding_switcher_ = std::make_unique<input::BindingSwitcher>(controls_);
     // Before the main loop's first tick, so the driver never reads its own keybind_* defaults.
     binding_switcher_->Update(input::InputContext::kMenu);
-    prompt_swap_ = CreatePromptSwap();
+    prompt_swap_ = CreatePromptSwap(controls_);
+    // Never call the input system while holding controls_mutex_: it runs the keyboard filter
+    // under its own device lock.
     fm4_static_recomp::SetInputTick([this, input_system] {
       const input::InputContext context = input::CurrentInputContext();
-      binding_switcher_->Update(context);
-      if (!input_system) {
-        return;
-      }
       // The keyboard is a synthetic device; a pad that has not moved never takes over.
-      const auto device = input_system->ActiveDevice(0);
+      const auto device = input_system ? input_system->ActiveDevice(0) : std::nullopt;
       const bool keyboard = device && device->synthetic;
       keyboard_prompts_.store(keyboard, std::memory_order_relaxed);
-      if (prompt_swap_) {
+      const std::lock_guard lock(controls_mutex_);
+      binding_switcher_->Update(context);
+      if (input_system && prompt_swap_) {
         prompt_swap_->Update(keyboard, context);
       }
     });
@@ -300,26 +360,80 @@ class Fm4App final : public rex::ReXApp {
           if (!keyboard_prompts_.load(std::memory_order_relaxed)) {
             return std::nullopt;
           }
+          const std::lock_guard lock(controls_mutex_);
           return input::KeyboardText(key, text, controls_);
         });
     if (!input_system) {
       return;
     }
+    ramp_rates_ = controls_.ramp;
     input_system->SetKeyboardStateFilter(
-        [ramp = input::KeyboardRamp(controls_.ramp), last = std::chrono::steady_clock::now()](
-            uint32_t user_index, rex::input::X_INPUT_GAMEPAD& pad) mutable {
+        [this, ramp = input::KeyboardRamp(controls_.ramp),
+         last = std::chrono::steady_clock::now()](uint32_t user_index,
+                                                  rex::input::X_INPUT_GAMEPAD& pad) mutable {
           if (user_index != 0) {
             return;
           }
           const auto now = std::chrono::steady_clock::now();
           const double elapsed = std::chrono::duration<double>(now - last).count();
           last = now;
+          {
+            const std::lock_guard lock(ramp_mutex_);
+            ramp.SetRates(ramp_rates_);
+          }
           ramp.Apply(pad, elapsed, input::CurrentInputContext() == input::InputContext::kDriving);
         });
   }
 
+  // The keys the KEYBOARD tab saved, at once: the keyboard driver's binds
+  // at the next tick, the keycaps, the button texts, the ramp times and the menu's own keys.
+  bool ApplyControls() {
+    namespace input = fm4_static_recomp::input;
+    if (!controls_config_->Load()) {
+      REXLOG_ERROR("Controls: cannot read {}", controls_config_->path().string());
+      return false;
+    }
+    input::Controls controls = input::LoadControls(*controls_config_);
+    std::unique_ptr<input::PromptSwap> swap = CreatePromptSwap(controls);
+    {
+      const std::lock_guard lock(ramp_mutex_);
+      ramp_rates_ = controls.ramp;
+    }
+    {
+      const std::lock_guard lock(controls_mutex_);
+      // The old keycaps stay registered with the texture cache until taken back.
+      if (prompt_swap_) {
+        prompt_swap_->Update(false, input::CurrentInputContext());
+      }
+      controls_ = std::move(controls);
+      binding_switcher_ = std::make_unique<input::BindingSwitcher>(controls_);
+      prompt_swap_ = std::move(swap);
+    }
+    if (host_ui_) {
+      host_ui_->SetMenuKeys(CurrentMenuKeys());
+    }
+    REXLOG_INFO("Controls: applied {}", controls_config_->path().string());
+    return true;
+  }
+
+  fm4_static_recomp::hostui::MenuKeys CurrentMenuKeys() const {
+    using fm4_static_recomp::input::PadControl;
+    const auto& menu = controls_.menu.keys;
+    return {.up = menu[size_t(PadControl::kDpadUp)],
+            .down = menu[size_t(PadControl::kDpadDown)],
+            .left = menu[size_t(PadControl::kDpadLeft)],
+            .right = menu[size_t(PadControl::kDpadRight)],
+            .accept = menu[size_t(PadControl::kA)],
+            .back = menu[size_t(PadControl::kB)],
+            .apply = menu[size_t(PadControl::kY)],
+            .clear = menu[size_t(PadControl::kX)],
+            .previous_tab = menu[size_t(PadControl::kLeftShoulder)],
+            .next_tab = menu[size_t(PadControl::kRightShoulder)]};
+  }
+
   // The keycaps for the game's button icons, from its own icons and font.
-  std::unique_ptr<fm4_static_recomp::input::PromptSwap> CreatePromptSwap() {
+  std::unique_ptr<fm4_static_recomp::input::PromptSwap> CreatePromptSwap(
+      const fm4_static_recomp::input::Controls& controls) {
     namespace hostui = fm4_static_recomp::hostui;
     const auto ui_root = game_data_root() / "Media" / "UI";
     const auto textures = hostui::UiArchive::Open(ui_root / "Textures.zip");
@@ -335,7 +449,7 @@ class Fm4App final : public rex::ReXApp {
     auto icons = fm4_static_recomp::input::LoadPromptTextures(*textures);
     const size_t count = icons.size();
     auto swap = std::make_unique<fm4_static_recomp::input::PromptSwap>(std::move(icons), *font,
-                                                                       controls_);
+                                                                       controls);
     REXLOG_INFO("Prompt icons: {} of {} icons, keycaps drawn in {} ms", count,
                 fm4_static_recomp::input::kPromptTextureNames.size(),
                 std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -413,9 +527,17 @@ class Fm4App final : public rex::ReXApp {
       host_ui_ = std::make_unique<fm4_static_recomp::hostui::HostUi>(
           *this, *presenter, *immediate_drawer(), *window(),
           static_cast<rex::input::InputSystem*>(runtime()->input_system()), game_data_root(),
-          controls_.menu.keys[size_t(fm4_static_recomp::input::PadControl::kY)]);
+          CurrentMenuKeys());
     }
     fm4_static_recomp::ui::GraphicsPageServices services;
+    services.is_fullscreen = [this] {
+      return window() && window()->IsFullscreen();
+    };
+    services.set_fullscreen = [this](bool fs) {
+      if (auto* const window = this->window()) {
+        window->SetFullscreen(fs);
+      }
+    };
     services.display_refresh_hz = [hz = fm4_static_recomp::ui::DisplayRefreshHz(
                                        window()->GetNativeWindowHandle())] { return hz; };
     services.draw_resolution_scale = [this]() -> uint32_t {
@@ -435,12 +557,28 @@ class Fm4App final : public rex::ReXApp {
                                                          : std::pair{width, width * 9 / 16};
     };
     services.upscalers = [presenter] { return presenter->GetUpscalers(); };
-    host_ui_->Open(
-        fm4_static_recomp::ui::CreateGraphicsPage(*graphics_config_, std::move(services)));
+    namespace ui = fm4_static_recomp::ui;
+    std::vector<fm4_static_recomp::hostui::MenuTab> tabs = {
+        {"GRAPHICS",
+         [this, services] { return ui::CreateGraphicsPage(*graphics_config_, services); }},
+        {"KEYBOARD", [this] {
+           ui::ControlsPageServices keys;
+           keys.controller_layout = [] { return fm4_static_recomp::input::ControllerLayout(); };
+           keys.apply = [this] { return ApplyControls(); };
+           return ui::CreateControlsPage(*controls_config_, std::move(keys));
+         }}};
+    host_ui_->Open(std::move(tabs), 0);
   }
 
   std::unique_ptr<fm4_static_recomp::config::HostConfig> graphics_config_;
   std::unique_ptr<fm4_static_recomp::config::HostConfig> controls_config_;
+  // The keyboard filter's ramp times, apart from controls_mutex_: the filter runs under the
+  // input system's device lock.
+  std::mutex ramp_mutex_;
+  fm4_static_recomp::input::RampRates ramp_rates_{};
+  // Guards the three below: the input tick and the button texts read them on guest threads,
+  // the KEYBOARD tab replaces them on the UI thread.
+  mutable std::mutex controls_mutex_;
   fm4_static_recomp::input::Controls controls_ = fm4_static_recomp::input::DefaultControls();
   std::unique_ptr<fm4_static_recomp::input::BindingSwitcher> binding_switcher_;
   std::unique_ptr<fm4_static_recomp::input::PromptSwap> prompt_swap_;

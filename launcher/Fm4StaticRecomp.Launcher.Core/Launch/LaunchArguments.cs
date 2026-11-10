@@ -37,18 +37,35 @@ public static class LaunchArguments
             ["user_name"] = profile.Gamertag,
             ["fm4_language"] = settings.Language,
         };
+        if (OperatingSystem.IsMacOS()) options["gpu_backend"] = "vulkan";
         if (profile.Xuid is { } xuid) options["user_xuid"] = xuid;
         // The mod's AI is tuned on Xenia, about six physics substeps a tick at its 62 fps.
         if (installGame == ProfileStore.Pfp4) options["fm4_car_min_substeps"] = "6";
         if (settings.SkipIntro) options["fm4_skip_intro"] = "true";
+        if (settings.ShowFps && !Predates(version, new Version(0, 3, 2))) options["fm4_show_fps"] = "true";
+        if (!settings.ControllerVibration && !Predates(version, new Version(0, 3, 2)))
+        {
+            options["controller_vibration"] = "false";
+            options["pad_rumble_strength"] = "0";
+        }
         if (settings.Compat) foreach (var (name, value) in CompatOptions) options[name] = value;
         if (!settings.AsyncReadbacks) options["fh1_async_readbacks"] = "false";
         if (settings.PresentViaDxgi && platform.SupportsDxgiPresentation) options["vulkan_present_via_dxgi"] = "true";
         if (settings.Diagnostic30Fps) options["fm4_frame_rate"] = "30";
+        if (settings.ControllerVibration && settings.VibrationStrength != LauncherSettings.GameVibrationStrength
+            && !Predates(version, new Version(0, 3, 2)))
+            options["pad_rumble_strength"] = settings.VibrationStrength.ToString(CultureInfo.InvariantCulture);
+        if (settings.AudioCompatibility && !Predates(version, new Version(0, 3, 2))) options["fm4_audio_compatibility"] = "true";
+        if (!settings.AudioPopFix && !Predates(version, new Version(0, 3, 2))) options["fm4_audio_pop_fix"] = "false";
+        if (!Predates(version, new Version(0, 3, 2)))
+        {
+            if (!string.IsNullOrWhiteSpace(settings.MenuMusicFolder)) options["fm4_menu_music_folder"] = settings.MenuMusicFolder;
+            if (!string.IsNullOrWhiteSpace(settings.RaceMusicFolder)) options["fm4_race_music_folder"] = settings.RaceMusicFolder;
+        }
         // In fullscreen too: Alt+Enter leaves to this size. An older version (GO BACK TO, or while an update
         // builds) starts fullscreen: it takes the window's size for the guest's video mode, and below 1280x720,
         // on a scaled display, the game changes its text layout.
-        if (!PredatesWindowSizeApart(version))
+        if (!Predates(version, new Version(0, 3, 1)))
         {
             if (settings.Windowed) options["fullscreen"] = "false";
             options["window_width"] = LogicalSize(settings.WindowSize.Width, displayDpi).ToString(CultureInfo.InvariantCulture);
@@ -74,8 +91,8 @@ public static class LaunchArguments
         return (logical * dpi + 95) / 96 < real ? logical + 1 : logical;
     }
 
-    private static bool PredatesWindowSizeApart(string version) =>
-        Version.TryParse(version, out var parsed) && parsed < new Version(0, 3, 1);
+    private static bool Predates(string version, Version first) =>
+        Version.TryParse(version, out var parsed) && parsed < first;
 
     // The SDK reads --no-name as --name=false, the same option.
     private static string NameOf(string argument) =>

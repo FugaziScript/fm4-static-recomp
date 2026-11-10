@@ -4,6 +4,9 @@
 # tools/release_analysis.py moves them into the image being built through
 # config/rexglue/releases/<image>.toml; each image's [functions] are in fragments-<image>.toml.
 
+# Only these mixer copies may bypass FMA, after static or runtime proof of float-valued inputs.
+exact_single_fma_functions = [0x82B56430, 0x82B5CCF0, 0x82B94F78]
+
 # Microsoft CRT non-local jump pair (9 setjmp and 8 longjmp call sites). These
 # must be semantic codegen hooks so a longjmp restores the host-side PPCContext
 # captured at the setjmp call site.
@@ -147,6 +150,15 @@ address = 0x82390B94
 name = "Fm4CommandBufferClipRect"
 registers = ["r1"]
 
+# A player's input settings (player r31, index at +0x1C) are applied from the profile: the
+# profile's layout for the player's device (r4; 0 to 12 for a pad), loaded here from
+# gamedb.slt's ControllerLayouts (r5 = 0), WheelLayouts (1) or BristolLayouts (2) by
+# 0x82406C78 (out, layout id, device, ...).
+[[midasm_hook]]
+address = 0x8243136C
+name = "Fm4ControllerLayoutApplied"
+registers = ["r4", "r5", "r31"]
+
 # CCarThumbnailRenderStateMachine (vtable 0x8200DA0C, state table 0x8200D9C8)
 # renders a car's garage thumbnail in states 1 to 3 (load the uithumbnail
 # backdrop, draw, read back and save), twice per new car or paint: uithumbig,
@@ -261,9 +273,72 @@ registers = ["f31"]
 # The race's menu scenes (pause, pre-race, post-race, replay) are created by their
 # constructors and destroyed by their deleting destructors (vtable slot 1); while
 # one lives over a race the keys follow the menu bindings (src/input/input_context.*).
+# The pause and pre-race menus are destroyed while AUDIO, HUD, PHOTO MODE, STARTING
+# GRID or TUNE SETUP replaces them, so those scenes count too, but only during a race:
+# some also open from the front end (Fm4RaceSubmenuSceneCreated).
 [[midasm_hook]]
 address = 0x8259A1A8
 name = "Fm4RaceMenuSceneCreated"
+registers = ["r3"]
+
+# CAudioOptionsBasic constructor
+[[midasm_hook]]
+address = 0x824AFCA0
+name = "Fm4RaceSubmenuSceneCreated"
+registers = ["r3"]
+
+# CHudOptions constructor
+[[midasm_hook]]
+address = 0x824B0008
+name = "Fm4RaceSubmenuSceneCreated"
+registers = ["r3"]
+
+# CPhotoModeIngame constructor
+[[midasm_hook]]
+address = 0x825A90A8
+name = "Fm4RaceSubmenuSceneCreated"
+registers = ["r3"]
+
+# CStartingGrid constructor
+[[midasm_hook]]
+address = 0x825DB968
+name = "Fm4RaceSubmenuSceneCreated"
+registers = ["r3"]
+
+# CTuneMenu constructor
+[[midasm_hook]]
+address = 0x824CAAB0
+name = "Fm4RaceSubmenuSceneCreated"
+registers = ["r3"]
+
+# CAudioOptionsBasic deleting destructor
+[[midasm_hook]]
+address = 0x824AFD60
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+# CHudOptions deleting destructor
+[[midasm_hook]]
+address = 0x824B0100
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+# CPhotoModeIngame deleting destructor
+[[midasm_hook]]
+address = 0x825A9100
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+# CStartingGrid deleting destructor
+[[midasm_hook]]
+address = 0x825DE0F0
+name = "Fm4RaceMenuSceneDestroyed"
+registers = ["r3"]
+
+# CTuneMenu deleting destructor
+[[midasm_hook]]
+address = 0x824CBD90
+name = "Fm4RaceMenuSceneDestroyed"
 registers = ["r3"]
 
 [[midasm_hook]]
@@ -300,3 +375,43 @@ registers = ["r3"]
 address = 0x825BFAC0
 name = "Fm4RaceMenuSceneDestroyed"
 registers = ["r3"]
+
+# The audio render thread hands each mixed block (r4: 6 channels of 256 big-endian floats) to
+# this function before submitting it: AUDIO POP FIX smooths the steps at the block's start.
+[[midasm_hook]]
+address = 0x82C56B78
+name = "Fm4AudioMixBlock"
+context = true
+registers = ["r4"]
+
+[[midasm_hook]]
+address = 0x82B58C44
+name = "Fm4AudioStableGain"
+context = true
+registers = ["r21", "r23", "r27", "r28", "r31"]
+jump_address_on_true = 0x82B58D50
+
+[[midasm_hook]]
+address = 0x822B0040
+name = "Fm4MusicUpdate"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x82338D2C
+name = "Fm4MusicStreamGain"
+registers = ["r31", "f1"]
+
+[[midasm_hook]]
+address = 0x82338DBC
+name = "Fm4MusicStreamPlaying"
+registers = ["r31", "r3"]
+
+[[midasm_hook]]
+address = 0x829851AC
+name = "Fm4MusicMovieStarted"
+registers = ["r31"]
+
+[[midasm_hook]]
+address = 0x8297AA50
+name = "Fm4MusicMovieStopped"
+registers = ["r31"]

@@ -40,6 +40,7 @@ public class SetupRunnerTests
     [Fact]
     public void Passes_the_layout_and_the_player_s_choices()
     {
+        if (!OperatingSystem.IsWindows()) return;
         var layout = new InstallLayout(@"C:\G\data");
         var args = SetupRunner.Arguments(layout, new SetupRequest("0.2.0", 6, true, false));
         Assert.Equal(["-GameRoot", @"C:\G\data\game", "-CacheRoot", @"C:\G\data\cache\0.2.0", "-JsonEvents",
@@ -70,7 +71,10 @@ public class SetupRunnerTests
         var failure = await new SetupRunner(layout, Platforms.Current).BuildAsync(new SetupRequest("1.0.0", 0, false, false),
             new SyncProgress<SetupEvent>(events.Add), lines.Add, CancellationToken.None);
         Assert.Equal(layout.Toolchain.Replace('\\', '/'), events.Single().Message);
-        Assert.Contains("Путь: " + layout.Cache("1.0.0"), lines);
+        // Windows PowerShell prints Cyrillic as ? where the console code page has none (437 on an English PC).
+        var console = Platforms.Current.ConsoleEncoding;
+        if (console.GetString(console.GetBytes("Путь")) == "Путь")
+            Assert.Contains("Путь: " + layout.Cache("1.0.0"), lines);
         Assert.NotNull(failure);
         Assert.Equal("The licence was not accepted.", failure!.Message);
         Assert.Equal("licence", failure.Step);

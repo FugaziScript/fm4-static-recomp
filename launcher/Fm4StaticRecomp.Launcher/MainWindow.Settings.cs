@@ -25,12 +25,13 @@ public partial class MainWindow
 
     private GraphicsSettings? _graphics;
     private string? _graphicsProblem;
-    private bool _skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _diagnostic30Fps, _windowed;
+    private bool _skipIntro, _audioPopFix = true, _audioCompatibility, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _diagnostic30Fps, _windowed;
     private (int Width, int Height) _windowSize = WindowSizes.Default;
-    private int _buildJobs;
+    private int _buildJobs, _vibrationStrength = LauncherSettings.GameVibrationStrength;
     private string _language = GameLanguages.Default.Code;
     private string _commandLineOptions = "";
     private string? _savesFolder, _savesNote;
+    private string? _menuMusicFolder, _raceMusicFolder;
     private string _pfp4Mode = DefaultMode;
     private bool _pfp4HarderAi;
     private Button? _saveSettingsButton, _restoreSettingsButton;
@@ -61,10 +62,14 @@ public partial class MainWindow
             _graphicsProblem = $"The graphics settings list could not be read: {error.Message}";
         }
         var settings = host.Settings;
-        (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language) =
-            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language);
+        (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _buildJobs, _language) =
+            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.ShowFps, settings.ControllerVibration, settings.BuildJobs, settings.Language);
         (_windowed, _windowSize) = (settings.Windowed, settings.WindowSize);
         _diagnostic30Fps = settings.Diagnostic30Fps;
+        _audioPopFix = settings.AudioPopFix;
+        _audioCompatibility = settings.AudioCompatibility;
+        (_menuMusicFolder, _raceMusicFolder) = (settings.MenuMusicFolder, settings.RaceMusicFolder);
+        _vibrationStrength = settings.VibrationStrength;
         _commandLineOptions = settings.CommandLineOptions;
         (_savesFolder, _savesNote) = (settings.SavesFolder, null);
         (_pfp4Mode, _pfp4HarderAi) = (host.Setup.Pfp4Mode ?? DefaultMode, host.Setup.Pfp4HarderAi);
@@ -139,11 +144,16 @@ public partial class MainWindow
         if (_host is not { } host) return false;
         var settings = host.Settings;
         return _graphics?.Changed == true
-               || (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language, _commandLineOptions.Trim())
-               != (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs,
+               || (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _buildJobs, _language, _commandLineOptions.Trim())
+               != (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.ShowFps, settings.ControllerVibration, settings.BuildJobs,
                    settings.Language, settings.CommandLineOptions)
                || (_windowed, _windowSize) != (settings.Windowed, settings.WindowSize)
                || _diagnostic30Fps != settings.Diagnostic30Fps
+               || _audioPopFix != settings.AudioPopFix
+               || _audioCompatibility != settings.AudioCompatibility
+               || _menuMusicFolder != settings.MenuMusicFolder
+               || _raceMusicFolder != settings.RaceMusicFolder
+               || _vibrationStrength != settings.VibrationStrength
                || !string.Equals(_savesFolder, settings.SavesFolder, StringComparison.OrdinalIgnoreCase)
                || (Pfp4Install && (_pfp4Mode != (host.Setup.Pfp4Mode ?? DefaultMode) || _pfp4HarderAi != host.Setup.Pfp4HarderAi));
     }
@@ -227,6 +237,32 @@ public partial class MainWindow
             "The game's text and voice-over. Korean, Chinese, Portuguese, Czech, Hungarian and Dutch keep the English voice-over.",
             alwaysHelp: true));
         SettingsBody.Children.Add(Option("SKIP INTRO VIDEOS", "The game starts at its title screen.", _skipIntro, v => _skipIntro = v));
+        SettingsBody.Children.Add(Option("CONTROLLER VIBRATION",
+            "Controller rumble for impacts, road bumps and engine revs. Off turns all vibration off; VIBRATION STRENGTH "
+            + "keeps its value for later.", _controllerVibration, v => _controllerVibration = v));
+        var vibration = new Slider
+        {
+            Minimum = 0, Maximum = LauncherSettings.MaximumVibrationStrength, Value = _vibrationStrength, SmallChange = 1,
+            LargeChange = 10, IsSnapToTickEnabled = true, TickFrequency = 1, Width = 320,
+        };
+        var vibrationValue = new TextBlock { Text = $"{_vibrationStrength}%", Width = 48, VerticalAlignment = VerticalAlignment.Center,
+            Foreground = Brush("ValueBrush") };
+        vibration.ValueChanged += (_, e) =>
+        {
+            _vibrationStrength = (int)Math.Round(e.NewValue);
+            vibrationValue.Text = $"{_vibrationStrength}%";
+        };
+        AutomationProperties.SetName(vibration, "VIBRATION STRENGTH");
+        SettingsBody.Children.Add(Labelled("VIBRATION STRENGTH",
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { vibration, vibrationValue } },
+            "100% is the game's own strength. Above 100% the controller's motors run stronger, 0% turns vibration off.", alwaysHelp: true, focus: vibration));
+
+        SettingsBody.Children.Add(Header("CUSTOM SOUNDTRACK"));
+        SettingsBody.Children.Add(Help("Choose folders of MP3 or WAV files, including subfolders. Tracks play in shuffled order. "
+            + "New races, restarts and menu/race switches choose a fresh track. The game's music volume still applies. "
+            + "Leave a folder unset for the original soundtrack. SAVE and restart the game to apply."));
+        SettingsBody.Children.Add(MusicFolderRow("MENU MUSIC FOLDER", _menuMusicFolder, value => _menuMusicFolder = value));
+        SettingsBody.Children.Add(MusicFolderRow("RACE MUSIC FOLDER", _raceMusicFolder, value => _raceMusicFolder = value));
 
         SettingsBody.Children.Add(Header("ADVANCED"));
         SettingsBody.Children.Add(Help("These are the recommended defaults. Don't change them unless you're sure what a setting does."));
@@ -240,6 +276,16 @@ public partial class MainWindow
         SettingsBody.Children.Add(Option("30 FPS (DIAGNOSTIC)",
             "For testing slow processors: the game runs at 30 frames per second, whatever GRAPHICS says. Not for normal play.",
             _diagnostic30Fps, v => _diagnostic30Fps = v));
+        SettingsBody.Children.Add(Option("SHOW FPS",
+            "Shows the frame rate and frame time in the game. F3 shows and hides it while you play.", _showFps, v => _showFps = v));
+        SettingsBody.Children.Add(Option("AUDIO POP FIX",
+            "Smooths the pops in the engine sounds, which a console has too: where a loop starts over, and where the game "
+            + "restarts sounds while revving and shifting. Off plays the audio as the console does.", _audioPopFix, v => _audioPopFix = v));
+        SettingsBody.Children.Add(Option("AUDIO FOR OLDER CPUS",
+            "Try this if race audio repeats or slows down. It helps most on processors without FMA instructions: most "
+            + "made before 2013 and some Celeron and Pentium models. Uses a faster calculation path for parts of the "
+            + "sound mixer. Off by default; requires game restart.",
+            _audioCompatibility, v => _audioCompatibility = v));
         var commandLine = new TextBox { Text = _commandLineOptions, Watermark = "--name=value --other=value", Width = 420,
             HorizontalAlignment = HorizontalAlignment.Left };
         commandLine.TextChanged += (_, _) => _commandLineOptions = commandLine.Text ?? "";
@@ -255,6 +301,31 @@ public partial class MainWindow
         AutomationProperties.SetName(jobs, "BUILD JOBS");
         jobs.ValueChanged += (_, e) => _buildJobs = (int)(e.NewValue ?? 0);
         SettingsBody.Children.Add(Labelled("BUILD JOBS", jobs, "0 picks them from your processor and memory.", alwaysHelp: true));
+    }
+
+    private Control MusicFolderRow(string label, string? folder, Action<string?> apply)
+    {
+        var path = new TextBlock { Text = folder ?? "ORIGINAL MUSIC", TextWrapping = TextWrapping.Wrap,
+            Foreground = Brush("ValueBrush"), VerticalAlignment = VerticalAlignment.Center };
+        var choose = new Button { Content = "CHOOSE…", Classes = { "quiet" } };
+        choose.Click += async (_, _) =>
+        {
+            if (_busy || await PickFolderAsync("Choose " + label.ToLowerInvariant()) is not { } selected) return;
+            apply(selected);
+            path.Text = selected;
+            RefreshUnsavedMark();
+        };
+        var original = new Button { Content = "ORIGINAL MUSIC", Classes = { "link" }, VerticalAlignment = VerticalAlignment.Center };
+        original.Click += (_, _) =>
+        {
+            if (_busy) return;
+            apply(null);
+            path.Text = "ORIGINAL MUSIC";
+            RefreshUnsavedMark();
+        };
+        return Labelled(label, new StackPanel { Spacing = 4, Children = { path,
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { choose, original } } } },
+            "Your files stay in this folder; no copying or conversion is needed.");
     }
 
     // The folder is checked when chosen; SAVE moves the saves.
@@ -482,10 +553,15 @@ public partial class MainWindow
             }
             _graphics?.Save();
             var settings = host.Settings;
-            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language) =
-                (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language);
+            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.ShowFps, settings.ControllerVibration, settings.BuildJobs, settings.Language) =
+                (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _buildJobs, _language);
             (settings.Windowed, settings.WindowSize) = (_windowed, _windowSize);
             settings.Diagnostic30Fps = _diagnostic30Fps;
+            settings.AudioPopFix = _audioPopFix;
+            settings.AudioCompatibility = _audioCompatibility;
+            settings.MenuMusicFolder = _menuMusicFolder;
+            settings.RaceMusicFolder = _raceMusicFolder;
+            settings.VibrationStrength = _vibrationStrength;
             settings.CommandLineOptions = _commandLineOptions.Trim();
             settings.Save();
             if (_settingsStatus is not null) _settingsStatus.Text = leftover ?? "Saved. Applies at the next start.";

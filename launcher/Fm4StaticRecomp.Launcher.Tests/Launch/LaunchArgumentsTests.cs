@@ -18,6 +18,36 @@ public class LaunchArgumentsTests
         return (layout, profile, LauncherSettings.Load(layout.LauncherToml), temp);
     }
 
+    [Theory]
+    [InlineData("0.3.1", false)]
+    [InlineData("0.3.2", true)]
+    public void Custom_music_folders_are_forwarded_only_to_supported_versions(string version, bool supported)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        Directory.CreateDirectory(Path.GetDirectoryName(layout.LauncherToml)!);
+        File.WriteAllText(layout.LauncherToml, "menu_music_folder = \"C:/Music/My menu\"\n"
+            + "race_music_folder = \"D:/Музыка/Races\"\n");
+        settings = LauncherSettings.Load(layout.LauncherToml);
+        var args = LaunchArguments.ForPlay(layout, version, profile, settings, new WindowsPlatform());
+        Assert.Equal(supported, args.Contains("--fm4_menu_music_folder=C:/Music/My menu"));
+        Assert.Equal(supported, args.Contains("--fm4_race_music_folder=D:/Музыка/Races"));
+    }
+
+    [Fact]
+    public void An_explicit_empty_music_folder_restores_original_music()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        Directory.CreateDirectory(Path.GetDirectoryName(layout.LauncherToml)!);
+        File.WriteAllText(layout.LauncherToml, "menu_music_folder = \"C:/Music\"\n");
+        settings = LauncherSettings.Load(layout.LauncherToml);
+        settings.CommandLineOptions = "--fm4_menu_music_folder=\"\"";
+        var args = LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform());
+        Assert.Equal(new[] { "--fm4_menu_music_folder=" }, args.Where(a => a.StartsWith("--fm4_menu_music_folder")).ToArray());
+        Assert.DoesNotContain(args, a => a.StartsWith("--fm4_race_music_folder"));
+    }
+
     [Fact]
     public void Play_is_fullscreen_by_default_with_the_size_alt_enter_leaves_to()
     {
@@ -180,6 +210,99 @@ public class LaunchArgumentsTests
     }
 
     [Fact]
+    public void The_games_own_vibration_strength_passes_no_option()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        Assert.DoesNotContain(LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform()),
+            a => a.StartsWith("--pad_rumble_strength"));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(55)]
+    [InlineData(200)]
+    public void A_chosen_vibration_strength_sets_the_rumble_strength(int strength)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.VibrationStrength = strength;
+        Assert.Contains($"--pad_rumble_strength={strength}",
+            LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform()));
+    }
+
+    // Before 0.3.2 the strength only went down to 100; an older version (GO BACK TO) plays as it shipped.
+    [Theory]
+    [InlineData("0.3.1")]
+    [InlineData("0.3.0")]
+    public void An_older_version_keeps_its_default_vibration(string version)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.VibrationStrength = 40;
+        Assert.DoesNotContain(LaunchArguments.ForPlay(layout, version, profile, settings, new WindowsPlatform()),
+            a => a.StartsWith("--pad_rumble_strength"));
+    }
+
+    [Theory]
+    [InlineData(false, "0.3.2", null)]
+    [InlineData(true, "0.3.1", null)]
+    [InlineData(true, "0.3.2", "--fm4_audio_compatibility=true")]
+    [InlineData(true, "0.4.0", "--fm4_audio_compatibility=true")]
+    public void Audio_compatibility_requires_opt_in_and_a_supported_version(bool enabled, string version, string? expected)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.AudioCompatibility = enabled;
+        var options = LaunchArguments.ForPlay(layout, version, profile, settings, new WindowsPlatform())
+            .Where(a => a.StartsWith("--fm4_audio_compatibility")).ToArray();
+        if (expected is null) Assert.Empty(options);
+        else Assert.Equal(new[] { expected }, options);
+    }
+
+    [Fact]
+    public void An_explicit_audio_compatibility_override_wins()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.AudioCompatibility = true;
+        settings.CommandLineOptions = "--fm4_audio_compatibility=false";
+        var options = LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform())
+            .Where(a => a.StartsWith("--fm4_audio_compatibility")).ToArray();
+        Assert.Equal(new[] { "--fm4_audio_compatibility=false" }, options);
+    }
+
+    [Fact]
+    public void The_audio_pop_fix_on_by_default_passes_no_option()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        Assert.DoesNotContain(LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform()),
+            a => a.StartsWith("--fm4_audio_pop_fix"));
+    }
+
+    [Fact]
+    public void The_audio_pop_fix_turned_off_passes_it_off()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.AudioPopFix = false;
+        Assert.Contains("--fm4_audio_pop_fix=false",
+            LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform()));
+    }
+
+    // An older version has no AUDIO POP FIX and plays the audio as it shipped.
+    [Fact]
+    public void An_older_version_gets_no_audio_pop_fix_option()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.AudioPopFix = false;
+        Assert.DoesNotContain(LaunchArguments.ForPlay(layout, "0.3.1", profile, settings, new WindowsPlatform()),
+            a => a.StartsWith("--fm4_audio_pop_fix"));
+    }
+
+    [Fact]
     public void Play_signs_in_with_the_xuid_of_an_imported_xenia_save()
     {
         var (layout, profile, settings, temp) = Setup();
@@ -206,6 +329,79 @@ public class LaunchArgumentsTests
         settings.SkipIntro = false;
         var args = LaunchArguments.ForPlay(layout, "0.1.0", profile, settings, new WindowsPlatform());
         Assert.DoesNotContain(args, a => a.StartsWith("--fm4_skip_intro"));
+    }
+
+    [Theory]
+    [InlineData("0.3.2")]
+    [InlineData("0.3.3")]
+    public void Show_fps_passes_the_flag_when_supported(string version)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.ShowFps = true;
+        var args = LaunchArguments.ForPlay(layout, version, profile, settings, new WindowsPlatform());
+        Assert.Equal(["--fm4_show_fps=true"], args.Where(a => a.StartsWith("--fm4_show_fps=")));
+    }
+
+    [Theory]
+    [InlineData("0.3.0")]
+    [InlineData("0.3.1")]
+    public void An_older_version_gets_no_fps_or_vibration_options(string version)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.ShowFps = true;
+        settings.ControllerVibration = false;
+        settings.VibrationStrength = 55;
+        var args = LaunchArguments.ForPlay(layout, version, profile, settings, new WindowsPlatform());
+        Assert.DoesNotContain(args, a => a.StartsWith("--fm4_show_fps") ||
+            a.StartsWith("--controller_vibration") || a.StartsWith("--pad_rumble_strength"));
+    }
+
+    [Fact]
+    public void Reenabling_controller_vibration_restores_the_saved_strength()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.ControllerVibration = false;
+        settings.VibrationStrength = 55;
+        Assert.Contains("--pad_rumble_strength=0",
+            LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform()));
+        settings.ControllerVibration = true;
+        var args = LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform());
+        Assert.Equal(["--pad_rumble_strength=55"], args.Where(a => a.StartsWith("--pad_rumble_strength=")));
+        Assert.DoesNotContain(args, a => a.StartsWith("--controller_vibration"));
+        Assert.Equal(55, settings.VibrationStrength);
+    }
+
+    [Fact]
+    public void Explicit_fps_and_vibration_options_replace_launcher_values()
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.ShowFps = true;
+        settings.ControllerVibration = false;
+        settings.CommandLineOptions = "--fm4_show_fps=false --controller_vibration=true --pad_rumble_strength=55";
+        var args = LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform());
+        Assert.Equal(["--fm4_show_fps=false"], args.Where(a => a.StartsWith("--fm4_show_fps=")));
+        Assert.Equal(["--controller_vibration=true"], args.Where(a => a.StartsWith("--controller_vibration=")));
+        Assert.Equal(["--pad_rumble_strength=55"], args.Where(a => a.StartsWith("--pad_rumble_strength=")));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(55)]
+    [InlineData(100)]
+    [InlineData(200)]
+    public void Controller_vibration_off_overrides_every_strength(int strength)
+    {
+        var (layout, profile, settings, temp) = Setup();
+        using var _ = temp;
+        settings.ControllerVibration = false;
+        settings.VibrationStrength = strength;
+        var args = LaunchArguments.ForPlay(layout, "0.3.2", profile, settings, new WindowsPlatform());
+        Assert.Contains("--controller_vibration=false", args);
+        Assert.Equal(["--pad_rumble_strength=0"], args.Where(a => a.StartsWith("--pad_rumble_strength=")));
     }
 
     [Fact]

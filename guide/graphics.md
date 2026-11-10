@@ -11,12 +11,13 @@ page then says the settings are applied; a row's change takes effect at once or 
 race or screen, as the row says. Leaving with unapplied changes asks once more; leaving again
 discards them. A
 [launch option](launch-options.md) for one of these settings sets its starting value for that
-session only.
+session only. **RB** and **LB** switch to the KEYBOARD tab, which rebinds the keyboard
+([Keyboard](controls.md#in-the-game)).
 
 ## Presets
 
 GRAPHICS PRESET sets every row below it; changing one of them makes the preset CUSTOM.
-FRAME RATE, RESOLUTION SCALE, UPSCALER and SHARPNESS are not part of a preset.
+FRAME RATE, FULLSCREEN, RESOLUTION SCALE, UPSCALER and SHARPNESS are not part of a preset.
 
 | Setting | Console | High | Ultra | Experimental |
 |---|:---:|:---:|:---:|:---:|
@@ -42,6 +43,7 @@ FRAME RATE, RESOLUTION SCALE, UPSCALER and SHARPNESS are not part of a preset.
 | Setting | Effect |
 |---|---|
 | FRAME RATE | Frame rate of races, menus and the showroom, 60 fps up to your display's refresh rate (at most 240). Pick a rate your PC holds (see [Benchmarks](performance.md#benchmarks)). Without G-Sync or FreeSync, pick the refresh rate or a whole fraction of it. How it works: [High frame rates](high-frame-rate.md). |
+| FULLSCREEN | In the game only: switches between fullscreen and a window at once; **F11** and **Alt+Enter** do the same while you play. Not saved: the next start follows the launcher's WINDOWED. |
 | VSYNC | Off by default, which suits G-Sync and FreeSync displays. Turn it on if you see tearing. |
 | RESOLUTION SCALE | 1x to 4x of 1280x720 on each axis, up to 5120x2880. |
 | WINDOWED, WINDOW SIZE | In the launcher only, at the top of its GRAPHICS: the game starts in a window of this size, and **Alt+Enter** switches between window and fullscreen while you play. RESOLUTION SCALE and UPSCALER then go by the window instead of your screen: with an upscaler chosen, turning WINDOWED on or picking a smaller size lowers a scale it cannot run at, shown as a change before SAVE. From the next start. More in [Playing in a window](windowed.md). |

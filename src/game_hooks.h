@@ -29,6 +29,11 @@ void SetPromptTextSource(
 // plugin has registered them.
 void InstallPixelShaderSwitches();
 
+// Makes fm4_audio_pop_fix (SETTINGS → ADVANCED → AUDIO POP FIX in the launcher) switch the decoder's loop
+// crossfade with the mix de-click; call once the command line is parsed.
+void InstallAudioPopFix();
+void InstallAudioCompatibility();
+
 // Every guest file open, on the opening guest thread: the game's saving of a car
 // thumbnail ends the readback hold its render began.
 void NoteGuestFileOpen(std::string_view guest_path);
