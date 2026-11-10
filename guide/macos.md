@@ -132,9 +132,8 @@ out/build/mac-arm64-release/fm4_static_recomp \
 `FM4_GAME_ROOT=/absolute/path/to/disc1 ./tools/build-mac.sh` selects another disc
 folder. Use a separate user directory when comparing builds.
 
-`config/macos-toolchain.json` currently selects the preview SDK revision. Once
-the preview is integrated and the release SDK pin is set, Mac setup will use
-`config/release-toolchain.json`, as Windows does. No local patch stack is applied.
+Mac setup uses the SDK revision pinned in `config/release-toolchain.json`, as
+Windows does. No local patch stack is applied.
 
 Setup keeps managed SDK source under `.local/shiftglue-sdk-macos/<revision>` and
 builds the complete host, facade modules and FidelityFX runtime in
@@ -195,7 +194,7 @@ or caches. The `macos-ci` pull-request label enables automated launcher, Python,
 native and SDK checks on an Apple Silicon macOS 15 runner, targeting macOS 14.
 Tagged builds run the same checks and retain the ZIP and checksum as Actions
 artifacts; they do not publish a GitHub release. The tag must match the release
-version and use the shared SDK pin without a temporary Mac override. The game
+version and use the shared SDK pin. The game
 is still built on each player's Mac.
 
 ## Testing status
