@@ -50,7 +50,7 @@ TEST_CASE("A button phrase becomes the bound key", "[prompt_strings]") {
 TEST_CASE("The title screen and the short button phrases", "[prompt_strings]") {
   const Controls controls = DefaultControls();
   CHECK(Ascii(KeyboardText(kTitleStart, U16("Press A to start the game."), controls)) ==
-        "Press ENTER to start the game.");
+        "Press ENTER to start");
   CHECK(Ascii(KeyboardText(kExplore, U16("x, press START to bring up y"), controls)) ==
         "x, press P to bring up y");
   CHECK(Ascii(KeyboardText(kEngineTip, U16("Tip: Press the RB button to go"), controls)) ==

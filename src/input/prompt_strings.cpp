@@ -78,6 +78,8 @@ struct Phrase {
 
 // Longest first, so a phrase inside a longer one does not take it apart.
 constexpr Phrase kPhrases[] = {
+    // The title screen's lines hug this text: a key name longer than A must not widen it.
+    {u"Press A to start the game.", u"Press ", Slot::kA, u" to start"},
     {u"or pull the RIGHT TRIGGER", u"or ", Slot::kRT, u""},
     {u"Push forward on the LEFT STICK", u"Press ", Slot::kLeftStickUp, u""},
     {u"press the LEFT STICK (lean out)", u"press ", Slot::kLeftStickPress, u" (lean out)"},
