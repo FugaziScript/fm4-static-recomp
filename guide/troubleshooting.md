@@ -119,6 +119,21 @@ save, so a broken one stays broken. Saves imported from Xenia bring Xenia's pict
 Choose that car, then **PAINT → PAINT CAR**, repaint the body once and save: the game draws the
 picture again.
 
+## The controller does nothing at sign-in (NO PROFILE), but the keyboard works
+
+The game gives player 1 to the first controller Windows lists. Controller apps (DS4Windows, Steam,
+a controller maker's app) can add a hidden extra controller in front of yours, so your controller
+becomes player 2, which has no profile. Buttons that act twice come from the same thing
+([#72](https://github.com/i2kiselev/fm4-static-recomp/issues/72); a fix in the game is planned).
+
+1. Close the game. Open the Start menu, type **Set up USB game controllers** and open it. The
+   list should show one controller only.
+2. If it shows more, close your controller apps: right-click each one's icon beside the clock and
+   choose Exit. Check the list again.
+3. A PlayStation controller needs DS4Windows: open it, go to **Settings**, tick **Hide DS4
+   Controller**, then unplug the controller and plug it in again. The list shows one controller.
+4. Start the game again.
+
 ## Linux, Steam Deck or Proton
 
 Not supported yet: the setup fails there (for example "licences could not be read"). A native
