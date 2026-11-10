@@ -17,9 +17,9 @@ struct PromptStringKey {
 };
 
 // From the EN string tables: CarExperience (Autovista), InGame (race
-// tutorials), Lobby, Main (Rivals), MainMenu (title screen), MyProfile (rewind
-// help), Storefront, Telemetry, Tuning, UpgradeAreas.
-constexpr std::array<PromptStringKey, 22> kKeys = {{
+// tutorials), Lobby, Main (Rivals, the tab strips' LB/RB), MainMenu (title
+// screen), MyProfile (rewind help), Storefront, Telemetry, Tuning, UpgradeAreas.
+constexpr std::array<PromptStringKey, 24> kKeys = {{
     {0x3D74, false},  // CarExperience IDS_Explore_Description
     {0x42FB, false},  // CarExperience IDS_Interact_Description1
     {0x437B, false},  // CarExperience IDS_Interact_Description2
@@ -32,6 +32,8 @@ constexpr std::array<PromptStringKey, 22> kKeys = {{
     {0x76B3, true},   // InGame IDS_View_Message
     {0xF762, true},   // InGame IDS_Steering_Message
     {0xFC27, false},  // Lobby IDS_OptionBucketNameDesc
+    {0x5222, false},  // Main IDS_LB
+    {0xD225, false},  // Main IDS_RB
     {0xC0F5, false},  // Main IDS_Rivals_Message
     {0x90AB, false},  // MainMenu IDS_A_Start
     {0x206F, true},   // MyProfile IDS_Rewind_Message
@@ -95,6 +97,18 @@ constexpr Phrase kPhrases[] = {
     {u"the RIGHT STICK", u"", Slot::kRightStick, u""},
     {u"The RIGHT STICK", u"", Slot::kRightStick, u""},
     {u"Press A to", u"Press ", Slot::kA, u" to"},
+};
+
+// Strings that are a button name and nothing else, matched whole: as phrases
+// they would take apart words in the other strings under these keys.
+struct WholeText {
+  std::u16string_view text;
+  PadControl control;
+};
+
+constexpr WholeText kWholeTexts[] = {
+    {u"LB", PadControl::kLeftShoulder},
+    {u"RB", PadControl::kRightShoulder},
 };
 
 std::u16string Wide(std::string_view text) {
@@ -192,6 +206,10 @@ std::optional<std::u16string> KeyboardText(uint16_t key, std::u16string_view tex
   if (found == kKeys.end())
     return std::nullopt;
   const BindingSet& set = found->driving ? controls.driving : controls.menu;
+  for (const WholeText& whole : kWholeTexts) {
+    if (text == whole.text)
+      return Wide(Words(FirstKey(set, whole.control)));
+  }
   std::u16string out(text);
   bool changed = false;
   for (const Phrase& phrase : kPhrases) {

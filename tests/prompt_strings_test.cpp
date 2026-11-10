@@ -21,6 +21,8 @@ constexpr uint16_t kTelemetryExit = 0x2ADE;  // Telemetry IDS_Press_Dpad_Down (d
 constexpr uint16_t kTitleStart = 0x90AB;     // MainMenu IDS_A_Start
 constexpr uint16_t kExplore = 0x3D74;        // CarExperience IDS_Explore_Description
 constexpr uint16_t kEngineTip = 0xED3B;      // UpgradeAreas IDS_Description_1
+constexpr uint16_t kTabLeft = 0x5222;        // Main IDS_LB
+constexpr uint16_t kTabRight = 0xD225;       // Main IDS_RB
 
 std::u16string U16(std::string_view text) {
   return std::u16string(text.begin(), text.end());
@@ -53,6 +55,16 @@ TEST_CASE("The title screen and the short button phrases", "[prompt_strings]") {
         "x, press P to bring up y");
   CHECK(Ascii(KeyboardText(kEngineTip, U16("Tip: Press the RB button to go"), controls)) ==
         "Tip: Press E to go");
+}
+
+TEST_CASE("The tab strip's LB and RB become the menu keys", "[prompt_strings]") {
+  Controls controls = DefaultControls();
+  CHECK(Ascii(KeyboardText(kTabLeft, U16("LB"), controls)) == "Q");
+  CHECK(Ascii(KeyboardText(kTabRight, U16("RB"), controls)) == "E");
+  controls.menu.keys[size_t(PadControl::kLeftShoulder)] = "PageUp,Q";
+  CHECK(Ascii(KeyboardText(kTabLeft, U16("LB"), controls)) == "PGUP");
+  // MyProfile's string under the same key.
+  CHECK_FALSE(KeyboardText(kTabRight, U16("NUMBER OF PERFECT DRAFT SCORES"), controls));
 }
 
 TEST_CASE("A rebind changes the wording", "[prompt_strings]") {

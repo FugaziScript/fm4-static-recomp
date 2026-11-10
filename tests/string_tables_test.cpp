@@ -143,6 +143,8 @@ TEST_CASE("The prompt strings' keys name the same English entries, which name bu
       {0x76B3, "ingame.str", "IDS_View_Message"},
       {0xF762, "ingame.str", "IDS_Steering_Message"},
       {0xFC27, "lobby.str", "IDS_OptionBucketNameDesc"},
+      {0x5222, "main.str", "IDS_LB"},
+      {0xD225, "main.str", "IDS_RB"},
       {0xC0F5, "main.str", "IDS_Rivals_Message"},
       {0x90AB, "mainmenu.str", "IDS_A_Start"},
       {0x206F, "myprofile.str", "IDS_Rewind_Message"},
