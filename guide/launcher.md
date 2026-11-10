@@ -25,7 +25,7 @@ instead, see the [manual install](manual-install.md).
    | **Disc 2** (optional) | An ISO, a GOD folder or the folder with its four packages, or **Later** (CONTENT installs it any time). It is verified now and installed after the build, so keep it where it is until then. |
    | **Microsoft licence** | The build downloads Microsoft's C++ runtime and Windows SDK files from Microsoft. Read and accept their licences, or decline and use Microsoft's installer instead, which asks for administrator permission once. |
    | **Build** | The launcher downloads its build tools, translates and compiles the game. |
-   | **Your profile** | A name; the gamertag starts as it. |
+   | **Your profile** | A name; the gamertag starts as it. **CHOOSE EXISTING SAVE…** starts the profile from a save you already have ([Importing saves](saves.md#importing-saves)); **NEW CAREER** undoes that. |
 
 3. **PLAY**. The first start prepares shaders for your GPU before the title screen. A progress
    bar shows completed work, and the window stays responsive. The time depends on your computer
@@ -41,7 +41,7 @@ instead, see the [manual install](manual-install.md).
 | **PROFILE** | Adds, renames, imports and deletes [profiles](saves.md) (separate saves). |
 | **CONTENT** | Installs Disc 2 and DLC. Install them only here: the game's own Disc 2 install waits for a disc change that never comes. Also [unlocks the unicorn cars](#unicorn-cars). |
 | **GRAPHICS** | [Playing in a window](windowed.md) and the [GRAPHICS page's settings](graphics.md). **SAVE** on top writes this page and SETTINGS together. |
-| **SETTINGS** | The game's language, launch options (among them VIBRATION STRENGTH, 0–200 %, for a controller that vibrates too weakly), [CUSTOM SOUNDTRACK](launch-options.md#custom-soundtrack) for your own music, advanced options (among them AUDIO POP FIX, on by default, which smooths the pops in the engine sounds, [AUDIO FOR OLDER CPUS](troubleshooting.md#sound-is-slow-late-or-crackles-on-an-older-cpu), off by default, the [saves folder](saves.md#the-saves-folder), [PRESENT THROUGH DXGI](launch-options.md#frame-generation) and [30 FPS (DIAGNOSTIC)](high-frame-rate.md#testing-a-slow-processor)) and [command-line options](launch-options.md#with-the-launcher-command-line-options) for debugging. On a Project Forza Plus 4 install also its [career mode](project-forza-plus.md#career-modes-and-harder-ai). |
+| **SETTINGS** | The game's language, launch options (among them CONTROLLER VIBRATION, and VIBRATION STRENGTH, 0–200 %, for a controller that vibrates too weakly), [CUSTOM SOUNDTRACK](launch-options.md#custom-soundtrack) for your own music, advanced options (among them AUDIO POP FIX, on by default, which smooths the pops in the engine sounds, [AUDIO FOR OLDER CPUS](troubleshooting.md#sound-is-slow-late-or-crackles-on-an-older-cpu), off by default, SHOW FPS, the [saves folder](saves.md#the-saves-folder), [PRESENT THROUGH DXGI](launch-options.md#frame-generation) and [30 FPS (DIAGNOSTIC)](high-frame-rate.md#testing-a-slow-processor)) and [command-line options](launch-options.md#with-the-launcher-command-line-options) for debugging. On a Project Forza Plus 4 install also its [career mode](project-forza-plus.md#career-modes-and-harder-ai). |
 | **CONTROLS** | The keyboard's keys and how fast steering and pedals ramp: [Rebinding keys](controls.md#rebinding-keys). Has its own **SAVE**. |
 
 Installed DLC is treated as fully unlocked. The game automatically repairs incomplete license
@@ -116,3 +116,7 @@ The launcher checks GitHub when it starts (and from CHECK FOR UPDATES).
 
 Saves, content and settings are kept; each profile's save is zipped to `backups\` in the saves
 folder (`data\backups\` by default) before a new version first runs it.
+
+## On a Mac
+
+The launcher also runs as an app on Apple Silicon Macs, as an experimental preview. Setup works as on Windows; where the game data goes, updates and the known limits are in the [macOS guide](macos.md).

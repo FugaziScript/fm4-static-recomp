@@ -10,6 +10,29 @@ COMMAND-LINE OPTIONS (or through `REX_` environment variables), else in `fm4_sta
 Most come from the ShiftGlue SDK's Vulkan renderer. The ones marked "wrong image" break the
 picture on purpose, to bound what one part of the frame costs.
 
+## Reading the FPS overlay
+
+`--fm4_show_fps=true` opens the debug overlay. **Guest** counts new guest-output
+notifications over at least 250 ms of monotonic host time, independently of UI redraws.
+It measures guest-image throughput, not the configured frame-rate cap or confirmed display
+scanout. On Vulkan the notification follows submission/publication of the guest image;
+the host still has to present it. The displayed milliseconds are `1000 / FPS`, an average
+interval rather than a measurement of individual frame times.
+
+At 60 FPS, a quarter-second window contains about 15 images. One image falling on the
+other side of a sampling boundary changes the reading by about 4 FPS. Small fluctuations
+can therefore occur with periodic output; a steady average can also hide a stall followed
+by a burst. Neither smooth-looking gameplay nor this average alone establishes stable
+60 FPS pacing.
+
+For timing investigations, compare the same scene, cap, output size, upscaler and warmed
+cache with Vulkan validation enabled and disabled. The SDK option
+`--perf_critical_path_trace=true` logs monotonic timestamps for `guest_swap`,
+`consumed_swap` and host `present` events. Compare interval distributions and published
+image sequences as well as average rates. Host `present` records a successful presentation
+API return, not a hardware scanout timestamp. Tracing and validation add work, so repeat
+measurements and include a tracing-disabled control. Keep diagnostic logs private.
+
 ## Temporal upscalers (DLSS, FSR 2/3)
 
 Switches of the fixes that give the upscaler correct motion. Turn one off to see what it fixes.
@@ -81,6 +104,18 @@ Draws, by their index in the frame or their shader hash:
 | `--fh1_debug_vs_constant=<hash>:c<n>=x,y,z,w` | Replace one float constant of that vertex shader |
 | `--fh1_debug_dump_range=<draw>:<address>:<length>` | Before that draw, write those guest bytes as the GPU has them to the resolve dump folder |
 
+Platform-specific renderer defaults (explicit launch values override these):
+
+| Option | FM4 default | What it does |
+|---|---|---|
+| `--spirv_ieee_vertex_math` | `true` on macOS, `false` on Windows | Use IEEE vertex multiplication; works around reported driver-model roof clipping on Mac. `false` restores guest zero-product emulation. Restart to compare. |
+| `--unprotected_page_check_interval=<n>` | `64` on macOS, `1` on Windows | Experimental: scan preserved unprotected GPU pages every `n` Vulkan draws (positive integer). `1` restores checks before every draw; larger values may use stale geometry or textures. Range-request checks still run. Restart to compare. |
+| `--pinyon_shift_fh1_source_presentation` | `true` on macOS, `false` on Windows | Present each new guest image once; avoids duplicate overlay repaint submissions blocking MoltenVK's graphics queue |
+| `--fh1_fold_clears` | `true` on macOS, `false` on Windows | Fold EDRAM clears into the next draw's rendering instead of opening a separate clear pass, reducing Metal encoder work |
+| `--fh1_skip_draws_without_effect` | `true` on macOS, `false` on Windows | Skip draws without surface writes; preserve occlusion queries and memory exports |
+| `--fh1_readback_small_float_resolves` | `true` on macOS, `false` on Windows | Copy completed 32-bit float resolves of 4 KB or less into guest memory for CPU consumers |
+| `--force_convert_quad_lists_to_triangle_lists` | `true` on macOS, `false` on Windows | Force quad lists through triangle-list conversion; disabling the override still allows conversion when the backend requires it |
+
 Costs (wrong image unless noted):
 
 | Option | What it does |
@@ -96,6 +131,7 @@ Costs (wrong image unless noted):
 | `--fh1_debug_skip_resolve_reloads`, `--fh1_debug_skip_resolve_reloads_format=<n>` | Never reload textures from resolved memory (stale images) |
 | `--fh1_native_gpu_profile_draws` | With `--fh1_native_gpu_profile`, also time every draw by its pixel shader |
 | `--fh1_frame_replay_repeat=<n>` | Run a replayed frame `n` times, as a GPU benchmark |
+| `--fh1_untile_predicated_tiling=true` | Live. Combine predicated tile passes into one draw pass. FM4 disables this on macOS, matching Windows: enabling it can clip the default 4x MSAA menus and leaves stale image bands |
 | `--fh1_debug_untile=1\|2` | Diagnostics of the single-pass tiling: keep the first tile's predication, or draw the later tiles too |
 
 Resolves and visibility:

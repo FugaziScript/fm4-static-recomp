@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "minimum_macos": "14.0",
+  "sdk": {
+    "repository": "https://github.com/DarthMDev/shiftglue-sdk",
+    "revision": "bff366377019e7be39aad5431a5fd30b567ee001"
+  }
+}

@@ -18,6 +18,8 @@ public sealed class LauncherSettings
         ActiveVersion = _file.Get("active_version");
         PreviousVersion = _file.Get("previous_version");
         SkipIntro = _file.Get("skip_intro") != "false";
+        ShowFps = _file.Get("show_fps") == "true";
+        ControllerVibration = _file.Get("controller_vibration") != "false";
         AudioPopFix = _file.Get("audio_pop_fix") != "false";
         AudioCompatibility = _file.Get("audio_compatibility") == "true";
         MenuMusicFolder = _file.Get("menu_music_folder");
@@ -42,6 +44,8 @@ public sealed class LauncherSettings
     public string? ActiveVersion { get; set; }
     public string? PreviousVersion { get; set; }
     public bool SkipIntro { get; set; }
+    public bool ShowFps { get; set; }
+    public bool ControllerVibration { get; set; }
     public bool AudioPopFix { get; set; }
     public bool AudioCompatibility { get; set; }
     public string? MenuMusicFolder { get; set; }
@@ -75,6 +79,8 @@ public sealed class LauncherSettings
         Text("active_version", ActiveVersion);
         Text("previous_version", PreviousVersion);
         Flag("skip_intro", SkipIntro);
+        Flag("show_fps", ShowFps);
+        Flag("controller_vibration", ControllerVibration);
         Flag("audio_pop_fix", AudioPopFix);
         Flag("audio_compatibility", AudioCompatibility);
         Text("menu_music_folder", MenuMusicFolder);

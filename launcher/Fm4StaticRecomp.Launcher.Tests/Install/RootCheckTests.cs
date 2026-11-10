@@ -22,6 +22,7 @@ public class RootCheckTests
         @" Move the launcher's folder to a short path such as D:\FM4 and start it again.")]
     public void Refuses_with_the_reason_and_one_way_out(string root, string reason, string advice)
     {
+        if (!OperatingSystem.IsWindows()) return;
         var problem = RootCheck.Problem(root, Env)!;
         Assert.Contains(reason, problem);
         Assert.StartsWith($"The launcher cannot install into {root}: ", problem);
@@ -54,6 +55,7 @@ public class RootCheckTests
     [Fact]
     public void Accepts_a_path_of_the_maximum_length_and_refuses_a_longer_one()
     {
+        if (!OperatingSystem.IsWindows()) return;
         var parent = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "fm4t-" + Guid.NewGuid().ToString("N")[..6]);
         try
         {
@@ -92,6 +94,7 @@ public class RootCheckTests
             var root = Path.Combine(parent, "data");
             var problem = RootCheck.Problem(root, Env with { CreateLink = (_, _) => throw new IOException("not supported") })!;
             Assert.Contains("folder links", problem);
+            Assert.Contains("(not supported); an NTFS drive can, FAT32, exFAT and network drives cannot.", problem);
             Assert.Empty(Directory.GetFileSystemEntries(root));
         }
         finally { Directory.Delete(parent, recursive: true); }

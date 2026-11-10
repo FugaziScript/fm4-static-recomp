@@ -25,7 +25,7 @@ public partial class MainWindow
 
     private GraphicsSettings? _graphics;
     private string? _graphicsProblem;
-    private bool _skipIntro, _audioPopFix = true, _audioCompatibility, _asyncReadbacks, _presentViaDxgi, _compat, _diagnostic30Fps, _windowed;
+    private bool _skipIntro, _audioPopFix = true, _audioCompatibility, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _diagnostic30Fps, _windowed;
     private (int Width, int Height) _windowSize = WindowSizes.Default;
     private int _buildJobs, _vibrationStrength = LauncherSettings.GameVibrationStrength;
     private string _language = GameLanguages.Default.Code;
@@ -62,8 +62,8 @@ public partial class MainWindow
             _graphicsProblem = $"The graphics settings list could not be read: {error.Message}";
         }
         var settings = host.Settings;
-        (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language) =
-            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language);
+        (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _buildJobs, _language) =
+            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.ShowFps, settings.ControllerVibration, settings.BuildJobs, settings.Language);
         (_windowed, _windowSize) = (settings.Windowed, settings.WindowSize);
         _diagnostic30Fps = settings.Diagnostic30Fps;
         _audioPopFix = settings.AudioPopFix;
@@ -144,8 +144,8 @@ public partial class MainWindow
         if (_host is not { } host) return false;
         var settings = host.Settings;
         return _graphics?.Changed == true
-               || (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language, _commandLineOptions.Trim())
-               != (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs,
+               || (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _buildJobs, _language, _commandLineOptions.Trim())
+               != (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.ShowFps, settings.ControllerVibration, settings.BuildJobs,
                    settings.Language, settings.CommandLineOptions)
                || (_windowed, _windowSize) != (settings.Windowed, settings.WindowSize)
                || _diagnostic30Fps != settings.Diagnostic30Fps
@@ -237,6 +237,9 @@ public partial class MainWindow
             "The game's text and voice-over. Korean, Chinese, Portuguese, Czech, Hungarian and Dutch keep the English voice-over.",
             alwaysHelp: true));
         SettingsBody.Children.Add(Option("SKIP INTRO VIDEOS", "The game starts at its title screen.", _skipIntro, v => _skipIntro = v));
+        SettingsBody.Children.Add(Option("CONTROLLER VIBRATION",
+            "Controller rumble for impacts, road bumps and engine revs. Off turns all vibration off; VIBRATION STRENGTH "
+            + "keeps its value for later.", _controllerVibration, v => _controllerVibration = v));
         var vibration = new Slider
         {
             Minimum = 0, Maximum = LauncherSettings.MaximumVibrationStrength, Value = _vibrationStrength, SmallChange = 1,
@@ -273,6 +276,8 @@ public partial class MainWindow
         SettingsBody.Children.Add(Option("30 FPS (DIAGNOSTIC)",
             "For testing slow processors: the game runs at 30 frames per second, whatever GRAPHICS says. Not for normal play.",
             _diagnostic30Fps, v => _diagnostic30Fps = v));
+        SettingsBody.Children.Add(Option("SHOW FPS",
+            "Shows the frame rate and frame time in the game. F3 shows and hides it while you play.", _showFps, v => _showFps = v));
         SettingsBody.Children.Add(Option("AUDIO POP FIX",
             "Smooths the pops in the engine sounds, which a console has too: where a loop starts over, and where the game "
             + "restarts sounds while revving and shifting. Off plays the audio as the console does.", _audioPopFix, v => _audioPopFix = v));
@@ -548,8 +553,8 @@ public partial class MainWindow
             }
             _graphics?.Save();
             var settings = host.Settings;
-            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.BuildJobs, settings.Language) =
-                (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _buildJobs, _language);
+            (settings.SkipIntro, settings.AsyncReadbacks, settings.PresentViaDxgi, settings.Compat, settings.ShowFps, settings.ControllerVibration, settings.BuildJobs, settings.Language) =
+                (_skipIntro, _asyncReadbacks, _presentViaDxgi, _compat, _showFps, _controllerVibration, _buildJobs, _language);
             (settings.Windowed, settings.WindowSize) = (_windowed, _windowSize);
             settings.Diagnostic30Fps = _diagnostic30Fps;
             settings.AudioPopFix = _audioPopFix;
