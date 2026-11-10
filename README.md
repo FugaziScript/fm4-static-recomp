@@ -29,8 +29,9 @@ here for FM4.
 > engine sounds without pops, and a faster audio path for older processors. Also new: stronger
 > vibration for controllers that vibrate too weakly, DLC that the game showed as locked works
 > now, GPU readbacks and car thumbnails are much more reliable (a car turning pink after a
-> change of home space, or a thumbnail missing a tile, should now be rare), and the first start
-> prepares shaders before the title with a progress bar. Everything else in this version:
+> change of home space, or a thumbnail missing a tile, should now be rare), the first start
+> prepares shaders before the title with a progress bar, and there is an
+> [experimental preview for Apple Silicon Macs](guide/macos.md). Everything else in this version:
 > [release notes](https://github.com/i2kiselev/fm4-static-recomp/releases/latest).
 >
 > Since 0.3.1, **[Project Forza Plus 4](guide/project-forza-plus.md)** sets up from the launcher

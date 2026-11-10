@@ -201,6 +201,9 @@ is still built on each player's Mac.
 
 Contributors tested the preview on Apple M1 Max and M3 Macs: setup from the app and Free Play
 races in vanilla FM4 at a 60 FPS limit, and a run with Vulkan validation that logged no errors.
-The automated checks cover neighbouring 4 KB guest-page writes on a 16 KB host page and FSR 2/3
-on the GPU. Not tested yet: macOS 14 itself, Project Forza Plus 4, and FSR 2/3 image quality
-in races.
+A fresh setup from the app package, with the game data on an external NTFS drive (third-party
+driver), reached the title in about 9 seconds and played a race smoothly, with a few dips while
+shaders compiled. That setup hit an Apple Clang 21 crash in precompiled headers; setup now turns
+them off on a Mac. The automated checks cover neighbouring 4 KB guest-page writes on a 16 KB
+host page and FSR 2/3 on the GPU. Not tested yet: a full setup with Apple Clang 21 since that
+change, macOS 14 itself, Project Forza Plus 4, and FSR 2/3 image quality in races.
