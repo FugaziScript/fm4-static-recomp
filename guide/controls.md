@@ -44,6 +44,9 @@ The pre-race screen, pause menu, replays and results use these keys too.
 | Right stick | I J K L |
 | BACK / START | Tab / P |
 
+In photo mode, as on a controller, **Numpad 8 4 2 6** (left stick) move the camera, **I J K L**
+(right stick) pan it, and **W A S D** or the arrow keys (D-pad) rotate and zoom it.
+
 The mouse is not used.
 
 ## Rebinding keys
