@@ -23,6 +23,7 @@ and hides the frame rate, **F6** opens the GRAPHICS page, **F11** works like Alt
 | Look around (back: Down) | Arrow keys |
 | Look straight back | C |
 | Telemetry | T, G |
+| Telemetry pages | , / . |
 | Pause | Esc |
 
 Driving keys apply while the car is on track and the game is not paused. Steering, pedals

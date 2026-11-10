@@ -46,6 +46,7 @@ set(FM4_HOST_SOURCES
     src/shader_cache/cache_writer.cpp
     src/shader_cache/disc_shaders.cpp
     src/config/host_config.cpp
+    src/input/bc3_encoder.cpp
     src/input/controller_layout.cpp
     src/input/controls.cpp
     src/input/input_context.cpp
@@ -95,6 +96,7 @@ if(FM4_BUILD_TESTS)
         tests/dlc_licenses_test.cpp
         tests/keyboard_ramp_test.cpp
         tests/input_context_test.cpp
+        tests/bc3_encoder_test.cpp
         tests/keycap_test.cpp
         tests/prompt_swap_test.cpp
         tests/prompt_strings_test.cpp
@@ -119,6 +121,7 @@ if(FM4_BUILD_TESTS)
         src/game_language.cpp
         src/string_log.cpp
         src/config/host_config.cpp
+        src/input/bc3_encoder.cpp
         src/input/controller_layout.cpp
         src/input/controls.cpp
         src/input/keyboard_ramp.cpp
