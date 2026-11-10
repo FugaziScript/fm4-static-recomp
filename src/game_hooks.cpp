@@ -241,6 +241,26 @@ std::mutex g_string_log_mutex;
 fm4_static_recomp::StringShownLog g_string_log;
 
 using fm4_guest::kStringLookup;
+using fm4_guest::kTextAssign;
+using fm4_guest::kTextSetupGetTextReturn;
+
+// Scene text elements built from a prompt string (element data -> its key, the table's text,
+// the text it shows), so a device switch can rewrite them while their scene is up.
+struct LivePromptText {
+  uint16_t key;
+  std::u16string original;
+  std::u16string shown;
+};
+std::mutex g_live_prompt_mutex;
+std::unordered_map<uint32_t, LivePromptText> g_live_prompts;
+
+// A text element's text is a wide string at +0x84 (a 16-byte inline buffer while the capacity
+// is below 8, length at +0x94, capacity at +0x98); the element lays it out again while +0x119
+// is set, as the game's own SetText does.
+constexpr uint32_t kTextElementString = 0x84;
+constexpr uint32_t kTextElementLength = 0x94;
+constexpr uint32_t kTextElementCapacity = 0x98;
+constexpr uint32_t kTextElementLayout = 0x119;
 
 // A NUL-terminated big-endian UTF-16 copy of the text on the system heap.
 uint32_t GuestText(std::u16string_view text) {
@@ -263,6 +283,24 @@ std::u16string ReadGuestText(const uint8_t* base, uint32_t address) {
       break;
     }
     text.push_back(c);
+  }
+  return text;
+}
+
+uint32_t LoadGuestWord(const uint8_t* base, uint32_t address);
+
+std::u16string ReadElementText(const uint8_t* base, uint32_t element) {
+  const uint32_t length = LoadGuestWord(base, element + kTextElementLength);
+  const uint32_t capacity = LoadGuestWord(base, element + kTextElementCapacity);
+  if (length > capacity) {
+    return {};
+  }
+  const uint32_t data = capacity < 8 ? element + kTextElementString
+                                     : LoadGuestWord(base, element + kTextElementString);
+  std::u16string text;
+  for (uint32_t i = 0; i < length; ++i) {
+    const uint8_t* const at = base + data + 2 * i;
+    text.push_back(char16_t(at[0] << 8 | at[1]));
   }
   return text;
 }
@@ -1305,6 +1343,7 @@ bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCR
   if (!source) {
     return true;
   }
+  std::u16string shown = found;
   if (const auto text = source(key, found)) {
     const std::lock_guard lock(g_prompt_text_mutex);
     uint32_t& address = g_prompt_texts[*text];
@@ -1313,8 +1352,62 @@ bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCR
       REXLOG_INFO("Prompt text {:04X}: {}", key, std::string(text->begin(), text->end()));
     }
     r3.u64 = address;
+    shown = *text;
+  }
+  // A scene's static text: the element being built is the caller's r31.
+  if (uint32_t(ctx.lr) == kTextSetupGetTextReturn) {
+    const std::lock_guard lock(g_live_prompt_mutex);
+    g_live_prompts[ctx.r31.u32] = {key, found, std::move(shown)};
   }
   return true;
+}
+
+// A text element's update, before it checks whether to lay its text out again: a prompt
+// text built for the other device is rewritten, as the game's SetText would. The element
+// is live here; one that no longer shows the text it was given is another element now.
+void Fm4TextElementUpdate(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRegister& r30) {
+  FM4_HOOK_CENSUS();
+  const uint32_t element = r30.u32;
+  LivePromptText live;
+  {
+    const std::lock_guard lock(g_live_prompt_mutex);
+    const auto found = g_live_prompts.find(element);
+    if (found == g_live_prompts.end()) {
+      return;
+    }
+    live = found->second;
+  }
+  std::function<std::optional<std::u16string>(uint16_t, std::u16string_view)> source;
+  {
+    const std::lock_guard lock(g_prompt_text_mutex);
+    source = g_prompt_text_source;
+  }
+  if (!source) {
+    return;
+  }
+  const std::u16string wanted = source(live.key, live.original).value_or(live.original);
+  if (wanted == live.shown) {
+    return;
+  }
+  if (ReadElementText(base, element) != live.shown) {
+    const std::lock_guard lock(g_live_prompt_mutex);
+    g_live_prompts.erase(element);
+    return;
+  }
+  uint32_t text;
+  {
+    const std::lock_guard lock(g_prompt_text_mutex);
+    uint32_t& address = g_prompt_texts[wanted];
+    if (!address) {
+      address = GuestText(wanted);
+    }
+    text = address;
+  }
+  CallGuest(ctx, base, r1.u32, kTextAssign,
+            {element + kTextElementString, text, uint32_t(wanted.size())});
+  base[element + kTextElementLayout] = 1;
+  const std::lock_guard lock(g_live_prompt_mutex);
+  g_live_prompts[element].shown = wanted;
 }
 
 // The Options dispatcher (this, action): PC OPTIONS opens the host page; the

@@ -235,6 +235,14 @@ context = true
 registers = ["r1", "r3", "r4"]
 return_on_true = true
 
+# A text element's update (r30 = the element), before it checks whether to lay its text
+# out again: prompt texts follow the device switch while their scene is up.
+[[midasm_hook]]
+address = 0x8233FE4C
+name = "Fm4TextElementUpdate"
+context = true
+registers = ["r1", "r30"]
+
 # The Options dispatcher (this, action): action 23 opens the host page. The
 # game ignores actions it has no scene for, so nothing else changes.
 [[midasm_hook]]
