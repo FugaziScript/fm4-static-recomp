@@ -2,7 +2,7 @@
 
 [← Back to the README](../README.md)
 
-**Play Career → My Profile → Options → GRAPHICS**, or **F6** or **BACK + START** held
+**Play Career → My Profile → Options → PC OPTIONS**, or **F6** or **BACK + START** held
 together on a controller anywhere, opens a settings page
 in the game's own style. Each row explains itself; a changed row is marked red until **SAVE &
 APPLY** (**Y** on a controller, the menu's Y key on the keyboard, **Y** by default) saves the

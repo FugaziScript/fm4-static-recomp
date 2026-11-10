@@ -54,7 +54,7 @@ The mouse is not used.
 ### In the game
 
 1. Open the GRAPHICS page (**F6**, **BACK + START** held together on a controller, or Play
-   Career → My Profile → Options → GRAPHICS) and press **RB** (the menu's RB key on the
+   Career → My Profile → Options → PC OPTIONS) and press **RB** (the menu's RB key on the
    keyboard, **E** by default) to reach **KEYBOARD**; **LB** goes back, and clicking a tab's
    name works too. The list has a **DRIVING** section (on the track) and a **MENUS** section.
    The page moves with your menu keys (**W A S D** by default), and always with the arrow keys,

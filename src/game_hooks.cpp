@@ -217,8 +217,8 @@ void EndFastLoad(const char* reason, bool after_start_only = false) {
               std::chrono::duration<double>(elapsed).count(), reason);
 }
 
-// The GRAPHICS entry of My Profile -> Options: an action and a string key of
-// its own. The key is free in every string table (IDS_Graphics' hash, 0x7157,
+// The PC OPTIONS entry of My Profile -> Options (the GRAPHICS and KEYBOARD
+// tabs): an action and a string key of its own. The key is free in every string table (IDS_Graphics' hash, 0x7157,
 // is LiveStrings' IDS_MatchmakingBlockedTitle).
 constexpr uint32_t kGraphicsAction = 23;
 constexpr uint32_t kGraphicsStringKey = 0x7158;
@@ -1242,7 +1242,7 @@ void NoteGuestFileOpen(std::string_view guest_path) {
 }  // namespace fm4_static_recomp
 
 // The end of the Options items in My Profile's menu builder (r30 = the Options
-// category, r31 = the "MyProfile" table name): GRAPHICS after them, added as
+// category, r31 = the "MyProfile" table name): PC OPTIONS after them, added as
 // the game adds each item, through the frame's own two temporaries, which the
 // last item has just released.
 void Fm4AddGraphicsOption(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRegister& r30,
@@ -1260,14 +1260,14 @@ void Fm4AddGraphicsOption(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRe
   }
 }
 
-// The string table lookup (table, key): GRAPHICS for the entry's key, and the
+// The string table lookup (table, key): PC OPTIONS for the entry's key, and the
 // strings that name pad buttons as the prompt text source rewrites them.
 bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRegister& r3,
                            PPCRegister& r4) {
   FM4_HOOK_CENSUS();
   const uint16_t key = uint16_t(r4.u32 & 0xFFFF);
   if (key == kGraphicsStringKey) {
-    static const uint32_t text = GuestText(u"GRAPHICS");
+    static const uint32_t text = GuestText(u"PC OPTIONS");
     r3.u64 = text;
     return true;
   }
@@ -1317,7 +1317,7 @@ bool Fm4GraphicsOptionText(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCR
   return true;
 }
 
-// The Options dispatcher (this, action): GRAPHICS opens the host page; the
+// The Options dispatcher (this, action): PC OPTIONS opens the host page; the
 // game's own actions go on as before.
 bool Fm4OpenGraphicsOption(PPCRegister& r4) {
   FM4_HOOK_CENSUS();
