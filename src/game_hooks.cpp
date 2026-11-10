@@ -250,6 +250,9 @@ struct LivePromptText {
   uint16_t key;
   std::u16string original;
   std::u16string shown;
+  // The layout after a rewrite measures the text it replaced (ALIGN_TO lines hug that width),
+  // so the element lays out once more on its next update.
+  bool relayout = false;
 };
 std::mutex g_live_prompt_mutex;
 std::unordered_map<uint32_t, LivePromptText> g_live_prompts;
@@ -1387,6 +1390,11 @@ void Fm4TextElementUpdate(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRe
   }
   const std::u16string wanted = source(live.key, live.original).value_or(live.original);
   if (wanted == live.shown) {
+    if (live.relayout) {
+      base[element + kTextElementLayout] = 1;
+      const std::lock_guard lock(g_live_prompt_mutex);
+      g_live_prompts[element].relayout = false;
+    }
     return;
   }
   if (ReadElementText(base, element) != live.shown) {
@@ -1408,6 +1416,7 @@ void Fm4TextElementUpdate(PPCContext& ctx, uint8_t* base, PPCRegister& r1, PPCRe
   base[element + kTextElementLayout] = 1;
   const std::lock_guard lock(g_live_prompt_mutex);
   g_live_prompts[element].shown = wanted;
+  g_live_prompts[element].relayout = true;
 }
 
 // The Options dispatcher (this, action): PC OPTIONS opens the host page; the
