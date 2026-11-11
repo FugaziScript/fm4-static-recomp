@@ -54,6 +54,7 @@ const Setting kFrameRate = {"fm4_frame_rate", false, {}, 60, 240};
 const Setting kVsync = {"vulkan_present_mode", true, {{"OFF", "immediate"}, {"ON", "fifo"}}};
 const Setting kFrameGeneration = {"present_frame_generation", false,
                                   {{"OFF", "false"}, {"ON", "true"}}};
+const Setting kHud = {"fh1_native_hud", false, {{"UPSCALED", "false"}, {"NATIVE", "true"}}};
 const Setting kDetail = {"fm4_level_of_detail",
                          true,
                          {{"CONSOLE", "console"},
@@ -118,7 +119,7 @@ constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
     &kFrameRate, &kVsync, &kScale, &kUpscaler, &kDlssPreset, &kSharpness, &kFrameGeneration,
-    &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
+    &kHud, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
     &kMotionBlur, &kDepthOfField, &kCarDirt};
 
@@ -187,6 +188,11 @@ const RowText kRows[] = {
      "smoother motion at about one frame more input latency. Runs with FSR 2, FSR 3 or FSR 4 "
      "and pauses while a menu like this one is open. It presents through Vulkan, not DXGI, so "
      "tools that need DXGI frames (Lossless Scaling, AFMF) do not see them."},
+    {"HUD", &kHud,
+     "How the HUD and menus reach your display while DLSS, FSR 2, FSR 3 or FSR 4 upscales. "
+     "Upscaled stretches them from the resolution scale, as before. Native draws them a second "
+     "time at the display's resolution: sharp text, gauges and menus, for a little more GPU "
+     "work."},
     {"GRAPHICS PRESET", nullptr,
      "Sets every setting below. Console is the game as on the console; "
      "High raises most, adds FXAA and uses 2x MSAA everywhere; Ultra also raises the level of "
@@ -898,6 +904,13 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
     return !upscaler.empty() && upscaler != "FSR 1" && upscaler != "DLSS";
   };
   rows.push_back(std::move(frame_generation));
+
+  MenuRow hud = Row("HUD", kHud, draft);
+  hud.enabled = [draft, services] {
+    const std::string upscaler = UpscalerName(*draft, services);
+    return !upscaler.empty() && upscaler != "FSR 1";
+  };
+  rows.push_back(std::move(hud));
 
   MenuRow preset;
   preset.label = "GRAPHICS PRESET";
