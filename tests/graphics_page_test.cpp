@@ -723,3 +723,25 @@ TEST_CASE("Pointing at a row does not scroll the list", "[host_menu]") {
   // A focus the kept list no longer shows (a key moved it) centres again.
   CHECK(FirstVisibleRow(30, 0, 13, 20, 4) == 14);
 }
+
+TEST_CASE("The LIGHTING page and the launcher's schema offer bloom, exposure and saturation",
+          "[graphics_page]") {
+  config::HostConfig config(TempFile("lighting.toml"));
+  const auto page = ui::CreateLightingPage(config, Services());
+  for (const char* label : {"BLOOM STRENGTH", "BLOOM THRESHOLD", "EXPOSURE", "SATURATION"}) {
+    CAPTURE(label);
+    REQUIRE(Find(*page, label));
+    CHECK(Find(*page, label)->is_enabled());
+  }
+  const auto path = TempFile("lighting-schema.json");
+  REQUIRE(ui::WriteGraphicsSchema(path));
+  std::stringstream text;
+  text << std::ifstream(path).rdbuf();
+  const std::string schema = text.str();
+  for (const char* key : {"fm4_lighting_bloom", "fm4_lighting_bloom_threshold",
+                          "fm4_lighting_exposure", "fm4_lighting_saturation"}) {
+    CAPTURE(key);
+    CHECK(schema.find(std::string("\"key\":\"") + key + "\"") != std::string::npos);
+  }
+  std::filesystem::remove(path);
+}

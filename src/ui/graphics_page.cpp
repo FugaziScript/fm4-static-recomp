@@ -55,6 +55,50 @@ const Setting kVsync = {"vulkan_present_mode", true, {{"OFF", "immediate"}, {"ON
 const Setting kFrameGeneration = {"present_frame_generation", false,
                                   {{"OFF", "false"}, {"ON", "true"}}};
 const Setting kHud = {"fh1_native_hud", false, {{"UPSCALED", "false"}, {"NATIVE", "true"}}};
+// LIGHTING: each scales or offsets the track's own value (TrackSettings.xml), applied to the
+// game's bloom and tonemap draws (shiftglue-sdk fm4_lighting.cpp).
+const Setting kLightingBloom = {"fm4_lighting_bloom",
+                                false,
+                                {{"OFF", "0"},
+                                 {"25 %", "25"},
+                                 {"50 %", "50"},
+                                 {"75 %", "75"},
+                                 {"GAME", "100"},
+                                 {"125 %", "125"},
+                                 {"150 %", "150"},
+                                 {"200 %", "200"}}};
+const Setting kLightingBloomThreshold = {"fm4_lighting_bloom_threshold",
+                                         false,
+                                         {{"50 %", "50"},
+                                          {"75 %", "75"},
+                                          {"GAME", "100"},
+                                          {"150 %", "150"},
+                                          {"200 %", "200"},
+                                          {"300 %", "300"},
+                                          {"400 %", "400"}}};
+const Setting kLightingExposure = {"fm4_lighting_exposure",
+                                   false,
+                                   {{"-1.5 EV", "-150"},
+                                    {"-1 EV", "-100"},
+                                    {"-0.75 EV", "-75"},
+                                    {"-0.5 EV", "-50"},
+                                    {"-0.25 EV", "-25"},
+                                    {"GAME", "0"},
+                                    {"+0.25 EV", "25"},
+                                    {"+0.5 EV", "50"},
+                                    {"+0.75 EV", "75"},
+                                    {"+1 EV", "100"},
+                                    {"+1.5 EV", "150"}}};
+const Setting kLightingSaturation = {"fm4_lighting_saturation",
+                                     false,
+                                     {{"50 %", "50"},
+                                      {"75 %", "75"},
+                                      {"90 %", "90"},
+                                      {"GAME", "100"},
+                                      {"110 %", "110"},
+                                      {"FULL COLOUR", "118"},
+                                      {"130 %", "130"},
+                                      {"150 %", "150"}}};
 const Setting kDetail = {"fm4_level_of_detail",
                          true,
                          {{"CONSOLE", "console"},
@@ -121,7 +165,8 @@ const Setting* const kSettings[] = {
     &kFrameRate, &kVsync, &kScale, &kUpscaler, &kDlssPreset, &kSharpness, &kFrameGeneration,
     &kHud, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
-    &kMotionBlur, &kDepthOfField, &kCarDirt};
+    &kMotionBlur, &kDepthOfField, &kCarDirt, &kLightingBloom, &kLightingBloomThreshold,
+    &kLightingExposure, &kLightingSaturation};
 
 struct Preset {
   const char* label;
@@ -248,6 +293,20 @@ const RowText kRows[] = {
      "Applies from the next screen."},
     {"CAR DIRT", &kCarDirt,
      "The dirt cars gather in a race. Off leaves cars clean."},
+    {"BLOOM STRENGTH", &kLightingBloom,
+     "How strongly bright parts glow, against each track's own bloom. Off leaves no glow; "
+     "Game is the track as made.",
+     true},
+    {"BLOOM THRESHOLD", &kLightingBloomThreshold,
+     "How bright a part must be to glow, against each track's own threshold. Higher keeps "
+     "the glow to the sun, lights and reflections; lower spreads it."},
+    {"EXPOSURE", &kLightingExposure,
+     "Brightens or darkens the picture by stops after the game's own eye adaptation: +1 EV "
+     "is twice as bright."},
+    {"SATURATION", &kLightingSaturation,
+     "Colour strength against each track's. Most tracks take 15% of the colour away; Full "
+     "Colour gives it back there."},
+
 };
 
 const RowText& Text(const char* label) {
@@ -831,6 +890,54 @@ void LimitFrameRateToDisplay(uint32_t refresh_hz) {
               refresh_hz);
 }
 
+// The page around its rows: SAVE & APPLY, leaving with unapplied changes, the status line
+// and the queued settings applied one per frame.
+static std::unique_ptr<MenuScreen> FinishPage(const char* title, std::vector<MenuRow> rows,
+                                       const std::shared_ptr<Draft>& draft,
+                                       config::HostConfig& config,
+                                       const GraphicsPageServices& services) {
+  auto screen = std::make_unique<MenuScreen>(title, std::move(rows));
+  screen->set_apply([draft, &config] { SaveAndApply(*draft, config); });
+  // Unapplied changes keep the page open once; leaving again discards them.
+  screen->set_leave([draft] {
+    if (draft->busy()) {
+      return false;
+    }
+    if (draft->values.empty() || draft->leave_warned) {
+      return true;
+    }
+    draft->leave_warned = true;
+    return false;
+  });
+  screen->set_status([draft] {
+    if (draft->busy()) {
+      if (draft->settling == &kScale &&
+          std::chrono::steady_clock::now() - draft->set_at >= kShaderBuildShown) {
+        return hostui::MenuStatus{
+            .text = "BUILDING SHADERS FOR " + Label(kScale, Find(kScale, Live(kScale.name))) +
+                    ", FIRST TIME ONLY",
+            .busy = true};
+      }
+      return hostui::MenuStatus{.text = "APPLYING SETTINGS", .busy = true};
+    }
+    if (!draft->values.empty()) {
+      return hostui::MenuStatus{.text = "UNSAVED CHANGES", .warning = draft->leave_warned};
+    }
+    if (draft->applied) {
+      return hostui::MenuStatus{.text = "SETTINGS APPLIED. YOU CAN CONTINUE."};
+    }
+    return hostui::MenuStatus{};
+  });
+  screen->set_update([draft, services](bool closing) {
+    if (!closing) {
+      ApplyNext(*draft, services);
+    } else if (!draft->values.empty() && !draft->busy()) {
+      REXLOG_INFO("Graphics page: discarded {} unapplied changes", draft->values.size());
+    }
+  });
+  return screen;
+}
+
 std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
                                                GraphicsPageServices services) {
   auto draft = std::make_shared<Draft>();
@@ -971,46 +1078,27 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   MenuRow car_dirt = Row("CAR DIRT", kCarDirt, draft);
   rows.push_back(std::move(car_dirt));
 
-  auto screen = std::make_unique<MenuScreen>("GRAPHICS", std::move(rows));
-  screen->set_apply([draft, &config] { SaveAndApply(*draft, config); });
-  // Unapplied changes keep the page open once; leaving again discards them.
-  screen->set_leave([draft] {
-    if (draft->busy()) {
-      return false;
-    }
-    if (draft->values.empty() || draft->leave_warned) {
-      return true;
-    }
-    draft->leave_warned = true;
-    return false;
-  });
-  screen->set_status([draft] {
-    if (draft->busy()) {
-      if (draft->settling == &kScale &&
-          std::chrono::steady_clock::now() - draft->set_at >= kShaderBuildShown) {
-        return hostui::MenuStatus{
-            .text = "BUILDING SHADERS FOR " + Label(kScale, Find(kScale, Live(kScale.name))) +
-                    ", FIRST TIME ONLY",
-            .busy = true};
-      }
-      return hostui::MenuStatus{.text = "APPLYING SETTINGS", .busy = true};
-    }
-    if (!draft->values.empty()) {
-      return hostui::MenuStatus{.text = "UNSAVED CHANGES", .warning = draft->leave_warned};
-    }
-    if (draft->applied) {
-      return hostui::MenuStatus{.text = "SETTINGS APPLIED. YOU CAN CONTINUE."};
-    }
-    return hostui::MenuStatus{};
-  });
-  screen->set_update([draft, services](bool closing) {
-    if (!closing) {
-      ApplyNext(*draft, services);
-    } else if (!draft->values.empty() && !draft->busy()) {
-      REXLOG_INFO("Graphics page: discarded {} unapplied changes", draft->values.size());
-    }
-  });
-  return screen;
+  return FinishPage("GRAPHICS", std::move(rows), draft, config, services);
+}
+
+}  // namespace fm4_static_recomp::ui
+
+namespace fm4_static_recomp::ui {
+
+std::unique_ptr<MenuScreen> CreateLightingPage(config::HostConfig& config,
+                                               GraphicsPageServices services) {
+  auto draft = std::make_shared<Draft>();
+  std::vector<MenuRow> rows;
+  for (const auto& [label, setting] :
+       {std::pair{"BLOOM STRENGTH", &kLightingBloom},
+        std::pair{"BLOOM THRESHOLD", &kLightingBloomThreshold},
+        std::pair{"EXPOSURE", &kLightingExposure},
+        std::pair{"SATURATION", &kLightingSaturation}}) {
+    MenuRow row = Row(label, *setting, draft);
+    row.divider_above = false;
+    rows.push_back(std::move(row));
+  }
+  return FinishPage("LIGHTING", std::move(rows), draft, config, services);
 }
 
 }  // namespace fm4_static_recomp::ui
