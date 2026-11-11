@@ -109,3 +109,18 @@ track as made. Changes apply at once.
 | SATURATION | Colour strength; most tracks take 15 % of the colour away, and FULL COLOUR gives it back there. |
 | COCKPIT AMBIENT | The light from the surroundings on the cockpit's headliner, pillars and trim; the track is unchanged. |
 | COCKPIT SHADOW LIFT | Brings the cockpit's dark parts (dash, wheel, black trim) out of the dark; light materials barely change, the track never. |
+
+### HDR
+
+Below a line on the same tab, for an HDR display with Windows HDR on.
+
+| Setting | Effect |
+|---|---|
+| HDR | Sends the picture to the display in HDR; the HUD and menus stay at the paper white. |
+| HDR MODE | NATIVE takes the highlights from the game's own HDR scene, before its tone curve flattened them; EXPANDED stretches the finished SDR picture's bright parts. |
+| HDR PEAK BRIGHTNESS | The brightest your display shows: set it to the display's peak. |
+| HDR PAPER WHITE | How bright SDR white, the HUD and the menus are. |
+| HDR GAMMA | How dark the shadows are: 2.2 as a usual SDR display, 2.0 as the game encodes its picture, SRGB lifts the darkest shades most, 2.4 is darker. |
+
+Frame generation stays off with HDR. After HDR has been on, the game presents through Vulkan
+rather than DXGI until it is started again.
