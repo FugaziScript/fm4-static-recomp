@@ -16,6 +16,10 @@ or in the launcher's SETTINGS.
 | `--present_frame_generation=true` | FRAME GENERATION: AMD FSR frame generation with FSR 2, 3 or 4 |
 | `--fh1_native_hud=true` | HUD: NATIVE, the HUD and menus drawn at the display's resolution under DLSS, FSR 2, 3 or 4 |
 | `--present_dlss_preset=auto\|k\|m\|j\|l\|default` | DLSS PRESET |
+| `--fm4_lighting_bloom=0..200` | LIGHTING → BLOOM STRENGTH, in percent of the track's |
+| `--fm4_lighting_bloom_threshold=25..400` | LIGHTING → BLOOM THRESHOLD, in percent of the track's |
+| `--fm4_lighting_exposure=-300..300` | LIGHTING → EXPOSURE, in hundredths of a stop |
+| `--fm4_lighting_saturation=0..200` | LIGHTING → SATURATION, in percent of the track's |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |

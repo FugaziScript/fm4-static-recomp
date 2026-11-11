@@ -707,3 +707,25 @@ TEST_CASE("Choosing an upscaler over a scale above the screen drafts the scale d
   CHECK(page->Handle(NavCommand::kBack) == MenuScreen::Result::kBack);
   CHECK(rex::cvar::GetFlagByName("resolution_scale") == "4");
 }
+
+TEST_CASE("The LIGHTING page and the launcher's schema offer bloom, exposure and saturation",
+          "[graphics_page]") {
+  config::HostConfig config(TempFile("lighting.toml"));
+  const auto page = ui::CreateLightingPage(config, Services());
+  for (const char* label : {"BLOOM STRENGTH", "BLOOM THRESHOLD", "EXPOSURE", "SATURATION"}) {
+    CAPTURE(label);
+    REQUIRE(Find(*page, label));
+    CHECK(Find(*page, label)->is_enabled());
+  }
+  const auto path = TempFile("lighting-schema.json");
+  REQUIRE(ui::WriteGraphicsSchema(path));
+  std::stringstream text;
+  text << std::ifstream(path).rdbuf();
+  const std::string schema = text.str();
+  for (const char* key : {"fm4_lighting_bloom", "fm4_lighting_bloom_threshold",
+                          "fm4_lighting_exposure", "fm4_lighting_saturation"}) {
+    CAPTURE(key);
+    CHECK(schema.find(std::string("\"key\":\"") + key + "\"") != std::string::npos);
+  }
+  std::filesystem::remove(path);
+}
