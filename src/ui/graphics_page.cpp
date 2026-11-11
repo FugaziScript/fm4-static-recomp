@@ -89,6 +89,35 @@ const Setting kLightingExposure = {"fm4_lighting_exposure",
                                     {"+0.75 EV", "75"},
                                     {"+1 EV", "100"},
                                     {"+1.5 EV", "150"}}};
+// HDR output (shiftglue-sdk vulkan_presenter.cpp, fh1_hdr_gain.cpp). The nits are doubles,
+// whose cvars read back with six decimals.
+const Setting kHdr = {"present_hdr", false, {{"OFF", "false"}, {"ON", "true"}}};
+const Setting kHdrMode = {"present_hdr_native", false, {{"EXPANDED", "false"}, {"NATIVE", "true"}}};
+const Setting kHdrPeak = {"present_hdr_peak_nits",
+                          false,
+                          {{"400 NITS", "400.000000"},
+                           {"600 NITS", "600.000000"},
+                           {"800 NITS", "800.000000"},
+                           {"1000 NITS", "1000.000000"},
+                           {"1500 NITS", "1500.000000"},
+                           {"2000 NITS", "2000.000000"},
+                           {"4000 NITS", "4000.000000"}}};
+const Setting kHdrPaperWhite = {"present_hdr_paper_white_nits",
+                                false,
+                                {{"100 NITS", "100.000000"},
+                                 {"150 NITS", "150.000000"},
+                                 {"200 NITS", "200.000000"},
+                                 {"250 NITS", "250.000000"},
+                                 {"300 NITS", "300.000000"},
+                                 {"400 NITS", "400.000000"}}};
+// How the HDR output decodes the game's picture: 0 is piecewise sRGB, whose linear toe lifts
+// the darkest shades; the game encodes with 2.0 (a square root).
+const Setting kHdrGamma = {"present_hdr_gamma",
+                           false,
+                           {{"SRGB", "0.000000"},
+                            {"2.0", "2.000000"},
+                            {"2.2", "2.200000"},
+                            {"2.4", "2.400000"}}};
 const Setting kLightingSaturation = {"fm4_lighting_saturation",
                                      false,
                                      {{"50 %", "50"},
@@ -166,7 +195,7 @@ const Setting* const kSettings[] = {
     &kHud, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
     &kMotionBlur, &kDepthOfField, &kCarDirt, &kLightingBloom, &kLightingBloomThreshold,
-    &kLightingExposure, &kLightingSaturation};
+    &kLightingExposure, &kLightingSaturation, &kHdr, &kHdrMode, &kHdrPeak, &kHdrPaperWhite, &kHdrGamma};
 
 struct Preset {
   const char* label;
@@ -306,7 +335,24 @@ const RowText kRows[] = {
     {"SATURATION", &kLightingSaturation,
      "Colour strength against each track's. Most tracks take 15% of the colour away; Full "
      "Colour gives it back there."},
-
+    {"HDR", &kHdr,
+     "Sends the picture to an HDR display (Windows HDR on). Bright skies, lights and "
+     "reflections go past SDR white, up to the peak brightness below; the HUD and menus stay "
+     "at the paper white.",
+     true},
+    {"HDR MODE", &kHdrMode,
+     "Native takes the highlights from the game's own HDR scene, before its tone curve "
+     "flattened them. Expanded stretches the finished SDR picture's bright parts instead."},
+    {"HDR PEAK BRIGHTNESS", &kHdrPeak,
+     "The brightest your display shows. Set it to your display's peak: higher clips "
+     "highlights, lower dims them."},
+    {"HDR PAPER WHITE", &kHdrPaperWhite,
+     "How bright SDR white, the HUD and the menus are. 200 nits suits most rooms; lower in "
+     "the dark."},
+    {"HDR GAMMA", &kHdrGamma,
+     "How dark the shadows are on an HDR display. 2.2 is a usual SDR display; 2.0 is how the "
+     "game encodes its picture, with more detail in the shadows; sRGB lifts the darkest shades "
+     "most, as Windows shows SDR content; 2.4 is darker, for a dark room."},
 };
 
 const RowText& Text(const char* label) {
@@ -1093,9 +1139,11 @@ std::unique_ptr<MenuScreen> CreateLightingPage(config::HostConfig& config,
        {std::pair{"BLOOM STRENGTH", &kLightingBloom},
         std::pair{"BLOOM THRESHOLD", &kLightingBloomThreshold},
         std::pair{"EXPOSURE", &kLightingExposure},
-        std::pair{"SATURATION", &kLightingSaturation}}) {
+        std::pair{"SATURATION", &kLightingSaturation}, std::pair{"HDR", &kHdr},
+        std::pair{"HDR MODE", &kHdrMode}, std::pair{"HDR PEAK BRIGHTNESS", &kHdrPeak},
+        std::pair{"HDR PAPER WHITE", &kHdrPaperWhite}, std::pair{"HDR GAMMA", &kHdrGamma}}) {
     MenuRow row = Row(label, *setting, draft);
-    row.divider_above = false;
+    row.divider_above = std::string_view(label) == "HDR";
     rows.push_back(std::move(row));
   }
   return FinishPage("LIGHTING", std::move(rows), draft, config, services);

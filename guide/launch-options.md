@@ -20,6 +20,11 @@ or in the launcher's SETTINGS.
 | `--fm4_lighting_bloom_threshold=25..400` | LIGHTING → BLOOM THRESHOLD, in percent of the track's |
 | `--fm4_lighting_exposure=-300..300` | LIGHTING → EXPOSURE, in hundredths of a stop |
 | `--fm4_lighting_saturation=0..200` | LIGHTING → SATURATION, in percent of the track's |
+| `--present_hdr=true` | LIGHTING → HDR |
+| `--present_hdr_native=false` | LIGHTING → HDR MODE: EXPANDED |
+| `--present_hdr_peak_nits=<nits>` | LIGHTING → HDR PEAK BRIGHTNESS |
+| `--present_hdr_paper_white_nits=<nits>` | LIGHTING → HDR PAPER WHITE |
+| `--present_hdr_gamma=0\|2.0\|2.2\|2.4` | LIGHTING → HDR GAMMA (0 is piecewise sRGB) |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |
