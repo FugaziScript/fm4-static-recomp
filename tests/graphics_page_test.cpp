@@ -469,6 +469,9 @@ TEST_CASE("Every live and drafted upscaler and scale greys exactly the anti-alia
     // Frame generation runs with the temporal FSR upscalers alone.
     const bool generates = upscales && upscaling != "FSR 1" && upscaling != "DLSS";
     CHECK(Find(*page, "FRAME GENERATION")->is_enabled() == generates);
+    // The native HUD goes over any temporal upscale.
+    const bool temporal = upscales && upscaling != "FSR 1";
+    CHECK(Find(*page, "HUD")->is_enabled() == temporal);
     CHECK(Find(*page, "UPSCALER")->is_enabled());
     CHECK(Find(*page, "RESOLUTION SCALE")->is_enabled());
     CHECK(Find(*page, "GRAPHICS PRESET")->is_enabled());
@@ -486,7 +489,7 @@ TEST_CASE("Every live and drafted upscaler and scale greys exactly the anti-alia
           (upscales ? "ANISOTROPIC FILTERING" : "SHOWROOM MSAA"));
     CHECK(FocusAfter(*page, "CROWDS", NavCommand::kDown) == (upscales ? "BLOOM" : "POST AA"));
     CHECK(FocusAfter(*page, "GRAPHICS PRESET", NavCommand::kUp) ==
-          (generates ? "FRAME GENERATION" : upscales ? "SHARPNESS" : "UPSCALER"));
+          (temporal ? "HUD" : upscales ? "SHARPNESS" : "UPSCALER"));
     const std::string note = Find(*page, "RESOLUTION SCALE")->note();
     CAPTURE(note);
     if (upscales) {
