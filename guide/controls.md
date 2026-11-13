@@ -57,8 +57,8 @@ behind the car. The mouse pointer is hidden while you drive.
 To turn this off or change how fast the camera turns (**MOUSE LOOK SENSITIVITY**, 10 to 100,
 25 by default), open the **MOUSE** tab next to KEYBOARD in the game's PC OPTIONS (see
 [Rebinding keys](#rebinding-keys) below for how to get there), or the **MOUSE** tab in the
-launcher's **CONTROLS** page. Very fast flicks make the game jump the camera to the new angle
-instead of turning it; that is the game's own camera.
+launcher's **CONTROLS** page. Fast flicks swing the camera round smoothly; releasing the
+button after a large turn jumps it back behind the car, as releasing a controller's stick does.
 
 Outside races the mouse is not used.
 

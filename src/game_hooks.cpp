@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <rex/cvar.h>
+#include <rex/input/mnk/mnk_input_driver.h>
 #include <rex/logging.h>
 #include <rex/memory.h>
 #include <rex/ppc/context.h>
@@ -1203,6 +1204,24 @@ void Fm4RaceMenuSceneDestroyed(PPCRegister& r3) {
   FM4_HOOK_CENSUS();
   fm4_static_recomp::input::GameInputContext().RaceMenuSceneDestroyed(r3.u32);
   REXLOG_INFO("Race menu scene destroyed {:08X}", r3.u32);
+}
+
+namespace {
+
+thread_local uint32_t t_look_spring = 0;
+
+}  // namespace
+
+void Fm4CameraLookSpringStep(PPCRegister& r31) {
+  FM4_HOOK_CENSUS();
+  t_look_spring = r31.u32 + 0x108;
+}
+
+bool Fm4AngleSpringCut(PPCRegister& r31) {
+  FM4_HOOK_CENSUS();
+  // The game cuts any angle spring straight to its target once the gap reaches 60 degrees;
+  // a fast mouse sweep opens such gaps, so the held look eases the whole way instead.
+  return r31.u32 == t_look_spring && rex::input::mnk::IsHoldLookEngaged();
 }
 
 bool Fm4SkipVblankCallback() {
