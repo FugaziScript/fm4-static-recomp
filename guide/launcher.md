@@ -22,7 +22,7 @@ instead, see the [manual install](manual-install.md).
    | **Game** | Vanilla, or [Project Forza Plus 4](project-forza-plus.md) 1.3 over it. Chosen once: the install cannot be switched later. For the mod next to a vanilla install, extract the launcher into a second, empty folder. |
    | **Disc 1** | Drop or choose your ISO, GOD folder or extracted folder. It is verified and extracted. |
    | **Project Forza Plus 4 1.3** (mod installs only) | The mod's zip or folder, in place of the Disc 2 step; see [Project Forza Plus 4](project-forza-plus.md#setup). |
-   | **Disc 2** (optional) | An ISO, a GOD folder or the folder with its four packages, or **Later** (CONTENT installs it any time). It is verified now and installed after the build, so keep it where it is until then. |
+   | **Disc 2** (optional) | An ISO, a GOD folder, the folder of an unpacked Disc 2 or a folder with its four packages, or **Later** (CONTENT installs it any time). It is verified now and installed after the build, so keep it where it is until then. |
    | **Microsoft licence** | The build downloads Microsoft's C++ runtime and Windows SDK files from Microsoft. Read and accept their licences, or decline and use Microsoft's installer instead, which asks for administrator permission once. |
    | **Build** | The launcher downloads its build tools, translates and compiles the game. |
    | **Your profile** | A name; the gamertag starts as it. **CHOOSE EXISTING SAVE…** starts the profile from a save you already have ([Importing saves](saves.md#importing-saves)); **NEW CAREER** undoes that. |
