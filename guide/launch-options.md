@@ -23,10 +23,10 @@ or in the launcher's SETTINGS.
 | `--fm4_lighting_car_ambient=100..600` | LIGHTING → COCKPIT AMBIENT, in percent of the game's |
 | `--fm4_lighting_car_shadow_lift=0..400` | LIGHTING → COCKPIT SHADOW LIFT, in ten-thousandths of the scene's brightness |
 | `--present_hdr=true` | LIGHTING → HDR |
-| `--present_hdr_native=false` | LIGHTING → HDR MODE: EXPANDED |
 | `--present_hdr_peak_nits=<nits>` | LIGHTING → HDR PEAK BRIGHTNESS |
 | `--present_hdr_paper_white_nits=<nits>` | LIGHTING → HDR PAPER WHITE |
 | `--present_hdr_gamma=0\|2.0\|2.2\|2.4` | LIGHTING → HDR GAMMA (0 is piecewise sRGB) |
+| `--present_hdr_shadow_lift=0..400` | LIGHTING → HDR SHADOW LIFT, in hundredths of a stop |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |

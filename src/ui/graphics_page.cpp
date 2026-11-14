@@ -110,7 +110,6 @@ const Setting kCockpitShadowLift = {"fm4_lighting_car_shadow_lift",
 // HDR output (shiftglue-sdk vulkan_presenter.cpp, fh1_hdr_gain.cpp). The nits are doubles,
 // whose cvars read back with six decimals.
 const Setting kHdr = {"present_hdr", false, {{"OFF", "false"}, {"ON", "true"}}};
-const Setting kHdrMode = {"present_hdr_native", false, {{"EXPANDED", "false"}, {"NATIVE", "true"}}};
 const Setting kHdrPeak = {"present_hdr_peak_nits",
                           false,
                           {{"400 NITS", "400.000000"},
@@ -130,6 +129,15 @@ const Setting kHdrPaperWhite = {"present_hdr_paper_white_nits",
                                  {"400 NITS", "400.000000"}}};
 // How the HDR output decodes the game's picture: 0 is piecewise sRGB, whose linear toe lifts
 // the darkest shades; the game encodes with 2.0 (a square root).
+const Setting kHdrShadowLift = {"present_hdr_shadow_lift",
+                                false,
+                                {{"OFF", "0"},
+                                 {"+0.5 EV", "50"},
+                                 {"+1 EV", "100"},
+                                 {"+1.5 EV", "150"},
+                                 {"+2 EV", "200"},
+                                 {"+2.5 EV", "250"},
+                                 {"+3 EV", "300"}}};
 const Setting kHdrGamma = {"present_hdr_gamma",
                            false,
                            {{"SRGB", "0.000000"},
@@ -214,7 +222,7 @@ const Setting* const kSettings[] = {
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
     &kMotionBlur, &kDepthOfField, &kCarDirt, &kLightingBloom, &kLightingBloomThreshold,
     &kLightingExposure, &kLightingSaturation, &kCockpitAmbient, &kCockpitShadowLift, &kHdr,
-    &kHdrMode, &kHdrPeak, &kHdrPaperWhite, &kHdrGamma};
+    &kHdrPeak, &kHdrPaperWhite, &kHdrGamma, &kHdrShadowLift};
 
 struct Preset {
   const char* label;
@@ -367,9 +375,6 @@ const RowText kRows[] = {
      "reflections go past SDR white, up to the peak brightness below; the HUD and menus stay "
      "at the paper white.",
      true},
-    {"HDR MODE", &kHdrMode,
-     "Native takes the highlights from the game's own HDR scene, before its tone curve "
-     "flattened them. Expanded stretches the finished SDR picture's bright parts instead."},
     {"HDR PEAK BRIGHTNESS", &kHdrPeak,
      "The brightest your display shows. Set it to your display's peak: higher clips "
      "highlights, lower dims them."},
@@ -380,6 +385,10 @@ const RowText kRows[] = {
      "How dark the shadows are on an HDR display. 2.2 is a usual SDR display; 2.0 is how the "
      "game encodes its picture, with more detail in the shadows; sRGB lifts the darkest shades "
      "most, as Windows shows SDR content; 2.4 is darker, for a dark room."},
+    {"HDR SHADOW LIFT", &kHdrShadowLift,
+     "Brings out the darkest parts (cockpits, tunnels) without raising the paper white: they "
+     "get up to this much brighter, while mid tones barely move and the highlights not at "
+     "all, so the picture keeps its contrast."},
 };
 
 const RowText& Text(const char* label) {
@@ -1169,8 +1178,9 @@ std::unique_ptr<MenuScreen> CreateLightingPage(config::HostConfig& config,
         std::pair{"SATURATION", &kLightingSaturation},
         std::pair{"COCKPIT AMBIENT", &kCockpitAmbient},
         std::pair{"COCKPIT SHADOW LIFT", &kCockpitShadowLift}, std::pair{"HDR", &kHdr},
-        std::pair{"HDR MODE", &kHdrMode}, std::pair{"HDR PEAK BRIGHTNESS", &kHdrPeak},
-        std::pair{"HDR PAPER WHITE", &kHdrPaperWhite}, std::pair{"HDR GAMMA", &kHdrGamma}}) {
+        std::pair{"HDR PEAK BRIGHTNESS", &kHdrPeak},
+        std::pair{"HDR PAPER WHITE", &kHdrPaperWhite}, std::pair{"HDR GAMMA", &kHdrGamma},
+        std::pair{"HDR SHADOW LIFT", &kHdrShadowLift}}) {
     MenuRow row = Row(label, *setting, draft);
     row.divider_above = std::string_view(label) == "HDR";
     rows.push_back(std::move(row));
