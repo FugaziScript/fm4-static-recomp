@@ -728,7 +728,8 @@ TEST_CASE("The LIGHTING page and the launcher's schema offer bloom, exposure and
           "[graphics_page]") {
   config::HostConfig config(TempFile("lighting.toml"));
   const auto page = ui::CreateLightingPage(config, Services());
-  for (const char* label : {"BLOOM STRENGTH", "BLOOM THRESHOLD", "EXPOSURE", "SATURATION"}) {
+  for (const char* label : {"BLOOM STRENGTH", "BLOOM THRESHOLD", "EXPOSURE", "SATURATION",
+                            "COCKPIT AMBIENT", "COCKPIT SHADOW LIFT"}) {
     CAPTURE(label);
     REQUIRE(Find(*page, label));
     CHECK(Find(*page, label)->is_enabled());
@@ -739,7 +740,8 @@ TEST_CASE("The LIGHTING page and the launcher's schema offer bloom, exposure and
   text << std::ifstream(path).rdbuf();
   const std::string schema = text.str();
   for (const char* key : {"fm4_lighting_bloom", "fm4_lighting_bloom_threshold",
-                          "fm4_lighting_exposure", "fm4_lighting_saturation"}) {
+                          "fm4_lighting_exposure", "fm4_lighting_saturation",
+                          "fm4_lighting_car_ambient", "fm4_lighting_car_shadow_lift"}) {
     CAPTURE(key);
     CHECK(schema.find(std::string("\"key\":\"") + key + "\"") != std::string::npos);
   }

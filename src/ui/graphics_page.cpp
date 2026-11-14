@@ -89,6 +89,24 @@ const Setting kLightingExposure = {"fm4_lighting_exposure",
                                     {"+0.75 EV", "75"},
                                     {"+1 EV", "100"},
                                     {"+1.5 EV", "150"}}};
+// The cars' ambient light and a floor under their colours (shiftglue-sdk fm4_lighting.cpp).
+const Setting kCockpitAmbient = {"fm4_lighting_car_ambient",
+                                 false,
+                                 {{"GAME", "100"},
+                                  {"150 %", "150"},
+                                  {"200 %", "200"},
+                                  {"300 %", "300"},
+                                  {"400 %", "400"},
+                                  {"600 %", "600"}}};
+const Setting kCockpitShadowLift = {"fm4_lighting_car_shadow_lift",
+                                   false,
+                                   {{"OFF", "0"},
+                                    {"1", "10"},
+                                    {"2", "25"},
+                                    {"3", "50"},
+                                    {"4", "100"},
+                                    {"5", "200"},
+                                    {"6", "400"}}};
 const Setting kLightingSaturation = {"fm4_lighting_saturation",
                                      false,
                                      {{"50 %", "50"},
@@ -166,7 +184,7 @@ const Setting* const kSettings[] = {
     &kHud, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
     &kMotionBlur, &kDepthOfField, &kCarDirt, &kLightingBloom, &kLightingBloomThreshold,
-    &kLightingExposure, &kLightingSaturation};
+    &kLightingExposure, &kLightingSaturation, &kCockpitAmbient, &kCockpitShadowLift};
 
 struct Preset {
   const char* label;
@@ -306,6 +324,14 @@ const RowText kRows[] = {
     {"SATURATION", &kLightingSaturation,
      "Colour strength against each track's. Most tracks take 15% of the colour away; Full "
      "Colour gives it back there."},
+    {"COCKPIT AMBIENT", &kCockpitAmbient,
+     "The light from the surroundings on the cockpit's headliner, pillars and trim: higher "
+     "brings them out of the shade. Only the cars' own materials change (other cars' shaded "
+     "sides too), never the track."},
+    {"COCKPIT SHADOW LIFT", &kCockpitShadowLift,
+     "Brings the cockpit's dark parts (the dash, the wheel, black trim) out of the dark, on "
+     "the cars alone: dark materials gain the most, light ones barely change, the track "
+     "never."},
 
 };
 
@@ -1093,7 +1119,9 @@ std::unique_ptr<MenuScreen> CreateLightingPage(config::HostConfig& config,
        {std::pair{"BLOOM STRENGTH", &kLightingBloom},
         std::pair{"BLOOM THRESHOLD", &kLightingBloomThreshold},
         std::pair{"EXPOSURE", &kLightingExposure},
-        std::pair{"SATURATION", &kLightingSaturation}}) {
+        std::pair{"SATURATION", &kLightingSaturation},
+        std::pair{"COCKPIT AMBIENT", &kCockpitAmbient},
+        std::pair{"COCKPIT SHADOW LIFT", &kCockpitShadowLift}}) {
     MenuRow row = Row(label, *setting, draft);
     row.divider_above = false;
     rows.push_back(std::move(row));

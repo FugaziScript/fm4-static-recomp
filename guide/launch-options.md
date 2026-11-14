@@ -20,6 +20,8 @@ or in the launcher's SETTINGS.
 | `--fm4_lighting_bloom_threshold=25..400` | LIGHTING → BLOOM THRESHOLD, in percent of the track's |
 | `--fm4_lighting_exposure=-300..300` | LIGHTING → EXPOSURE, in hundredths of a stop |
 | `--fm4_lighting_saturation=0..200` | LIGHTING → SATURATION, in percent of the track's |
+| `--fm4_lighting_car_ambient=100..600` | LIGHTING → COCKPIT AMBIENT, in percent of the game's |
+| `--fm4_lighting_car_shadow_lift=0..400` | LIGHTING → COCKPIT SHADOW LIFT, in ten-thousandths of the scene's brightness |
 | `--fm4_disc2_packages=<folder>` | Install the Disc 2 packages from this folder |
 | `--fm4_dlc_packages=<folder>` | Install every DLC package under this folder |
 | `--fm4_skip_intro=true` | Skip the startup disclaimer and studio videos |

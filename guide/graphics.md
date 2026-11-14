@@ -107,3 +107,5 @@ track as made. Changes apply at once.
 | BLOOM THRESHOLD | How bright a part must be to glow: higher keeps the glow to the sun, lights and reflections. |
 | EXPOSURE | Brightens or darkens the picture by stops after the game's eye adaptation. |
 | SATURATION | Colour strength; most tracks take 15 % of the colour away, and FULL COLOUR gives it back there. |
+| COCKPIT AMBIENT | The light from the surroundings on the cockpit's headliner, pillars and trim; the track is unchanged. |
+| COCKPIT SHADOW LIFT | Brings the cockpit's dark parts (dash, wheel, black trim) out of the dark; light materials barely change, the track never. |
