@@ -67,6 +67,20 @@ it: the files inside load only together with the Xbox profile named in the file 
 
 The new profile plays as that Xbox profile. The file is not changed.
 
+What does not work:
+
+- **Extracted files** (`ForzaProfile`, `GameplayLog`, `PlayerDatabase`, `Liveries` and so on, taken out
+  of the save with Horizon, Velocity, wxPirs or similar): they don't say which Xbox profile made them.
+  Export the save again as one file.
+- **A whole USB drive or hard drive** (the `Xbox360\Data0000`… files): open it in one of these tools and
+  export the FM4 save from it.
+- **A save moved to another profile** with a modding tool (for example, Horizon's profile ID change): the
+  game still finds it "tampered with". Use the save as the console made it.
+- **Cloud saves**: download the save to the console first, then copy it to a USB drive.
+
+Saves exported with Horizon are tested; other tools that export the save unchanged as one file should
+work the same way.
+
 ## The saves folder
 
 SETTINGS → ADVANCED → **SAVES FOLDER** keeps your saves outside `data\`, for example in a folder
