@@ -67,6 +67,8 @@ image = "rev1"
 0x824CAAB0 = { at = 0x824CED18, fingerprint = "c19484aecd0e229b" }
 # hook Fm4RaceMenuSceneDestroyed: identical function through its vtables
 0x824CBD90 = { at = 0x824D0070, fingerprint = "59e63f9ae9a5584c" }
+# hook Fm4QuickRaceSetupLaps: identical function
+0x824D38BC = { at = 0x824D7FEC, fingerprint = "98e320c7d4b82ce7" }
 # hook Fm4AddGraphicsOption: identical function
 0x8256CCF4 = { at = 0x82572C0C, fingerprint = "9b13a0c5611cb98b" }
 # hook Fm4OpenGraphicsOption: identical function
@@ -117,6 +119,8 @@ image = "rev1"
 0x825DB968 = { at = 0x825E2268, fingerprint = "6b4589107dcc75a4" }
 # hook Fm4RaceMenuSceneDestroyed: identical function through its vtables
 0x825DE0F0 = { at = 0x825E4818, fingerprint = "59e63f9ae9a5584c" }
+# hook Fm4QuickRaceTrackQuery: identical function
+0x825E7BB0 = { at = 0x825EE220, fingerprint = "bb2f4c0ea3bc95eb" }
 # kMenuAddItem: identical function
 0x8266FF00 = { at = 0x82675768, fingerprint = "45ef72de459a5a8c" }
 # hook Fm4SkipVblankCallback: identical function

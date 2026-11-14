@@ -12,7 +12,8 @@ race or screen, as the row says. Leaving with unapplied changes asks once more; 
 discards them. A
 [launch option](launch-options.md) for one of these settings sets its starting value for that
 session only. **RB** and **LB** switch to the KEYBOARD tab, which rebinds the keyboard
-([Keyboard](controls.md#in-the-game)).
+([Keyboard](controls.md#in-the-game)), the MOUSE tab ([Mouse look](controls.md)) and the
+GAMEPLAY tab ([Quick Race laps](#quick-race-laps-experimental)).
 
 ## Presets
 
@@ -84,3 +85,12 @@ FRAME RATE, FULLSCREEN, RESOLUTION SCALE, UPSCALER and SHARPNESS are not part of
 | BLOOM | Full rate updates the glow every frame, where the console skips every second one in 16-car races. |
 | MOTION BLUR | The speed blur on the road surface. |
 | DEPTH OF FIELD | The focus blur of the showroom, pre-race and replay cameras and photo mode. |
+
+## Quick Race laps (experimental)
+
+The GAMEPLAY tab's **QUICK RACE LAPS** sets the number of laps of every Quick Race, from 1
+to 99, on every track; DEFAULT keeps each track's own count. It is saved to
+`config\gameplay.toml` and takes effect the next time track select opens: its LAPS box
+shows the new count. Kinect races keep their own count. Long races are not tested yet: tyre
+wear, the AI and the results screen may not hold up
+([#75](https://github.com/i2kiselev/fm4-static-recomp/issues/75)).

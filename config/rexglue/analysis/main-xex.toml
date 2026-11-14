@@ -438,3 +438,17 @@ address = 0x822BC340
 name = "Fm4AngleSpringCut"
 registers = ["r31"]
 jump_address_on_true = 0x822BC348
+
+# Quick Race setup (0x824D35D8), right after the lap count column's read (vtable + 0x80,
+# r3; r29 = the game mode, which picked QuickRaceLapCount or the Kinect column).
+[[midasm_hook]]
+address = 0x824D38BC
+name = "Fm4QuickRaceSetupLaps"
+registers = ["r3", "r29"]
+
+# Track select's list query (r4, the Tracks query reading QuickRaceLapCount by name for the
+# LAPS box, or another one on the branch joining here) at its vsnprintf (0x823AA8A0).
+[[midasm_hook]]
+address = 0x825E7BB0
+name = "Fm4QuickRaceTrackQuery"
+registers = ["r4"]

@@ -53,6 +53,7 @@
 #include "shader_cache/disc_shaders.h"
 #include "tool_mode.h"
 #include "ui/controls_page.h"
+#include "ui/gameplay_page.h"
 #include "ui/graphics_page.h"
 #include "ui/guest_frame_stats.h"
 #include "ui/hostui/host_ui.h"
@@ -118,6 +119,8 @@ class Fm4App final : public rex::ReXApp {
         std::make_unique<fm4_static_recomp::config::HostConfig>(config_root / "graphics.toml");
     controls_config_ =
         std::make_unique<fm4_static_recomp::config::HostConfig>(config_root / "controls.toml");
+    gameplay_config_ =
+        std::make_unique<fm4_static_recomp::config::HostConfig>(config_root / "gameplay.toml");
   }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
@@ -167,6 +170,11 @@ class Fm4App final : public rex::ReXApp {
       controls_ = fm4_static_recomp::input::LoadControls(*controls_config_);
     } else {
       REXLOG_ERROR("Controls: cannot read {}", controls_config_->path().string());
+    }
+    if (gameplay_config_->Load()) {
+      fm4_static_recomp::ui::ApplySavedGameplaySettings(*gameplay_config_);
+    } else {
+      REXLOG_ERROR("Gameplay settings: cannot read {}", gameplay_config_->path().string());
     }
   }
 
@@ -583,12 +591,14 @@ class Fm4App final : public rex::ReXApp {
            ui::ControlsPageServices mouse;
            mouse.apply = [this] { return ApplyControls(); };
            return ui::CreateMousePage(*controls_config_, std::move(mouse));
-         }}};
+         }},
+        {"GAMEPLAY", [this] { return ui::CreateGameplayPage(*gameplay_config_); }}};
     host_ui_->Open(std::move(tabs), 0);
   }
 
   std::unique_ptr<fm4_static_recomp::config::HostConfig> graphics_config_;
   std::unique_ptr<fm4_static_recomp::config::HostConfig> controls_config_;
+  std::unique_ptr<fm4_static_recomp::config::HostConfig> gameplay_config_;
   // The keyboard filter's ramp times, apart from controls_mutex_: the filter runs under the
   // input system's device lock.
   std::mutex ramp_mutex_;

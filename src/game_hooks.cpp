@@ -43,6 +43,7 @@
 #include "input/controller_layout.h"
 #include "input/input_context.h"
 #include "input/prompt_strings.h"
+#include "quick_race_laps.h"
 #include "scripted_input.h"
 #include "shadow_map.h"
 #include "string_log.h"
@@ -1222,6 +1223,44 @@ bool Fm4AngleSpringCut(PPCRegister& r31) {
   // The game cuts any angle spring straight to its target once the gap reaches 60 degrees;
   // a fast mouse sweep opens such gaps, so the held look eases the whole way instead.
   return r31.u32 == t_look_spring && rex::input::mnk::IsHoldLookEngaged();
+}
+
+// Quick Race setup, after it read the track's lap count from the database (r3; r29 = the
+// game mode, which picked the column): the GAMEPLAY tab's count instead.
+void Fm4QuickRaceSetupLaps(PPCRegister& r3, PPCRegister& r29) {
+  FM4_HOOK_CENSUS();
+  const int laps = fm4_static_recomp::QuickRaceLaps(int32_t(r3.u32), r29.u32,
+                                                    fm4_static_recomp::QuickRaceLapsSetting());
+  if (laps != int32_t(r3.u32)) {
+    REXLOG_INFO("Quick Race laps: {} instead of {}", laps, int32_t(r3.u32));
+    r3.u64 = uint32_t(laps);
+  }
+}
+
+// Track select's list query (r4), before the game formats it: the copy whose LAPS column
+// gives the GAMEPLAY tab's count. One copy per count, kept: the game formats from it.
+void Fm4QuickRaceTrackQuery(PPCRegister& r4) {
+  FM4_HOOK_CENSUS();
+  const int laps = fm4_static_recomp::QuickRaceLapsSetting();
+  if (!laps) {
+    return;
+  }
+  auto* const memory = rex::system::kernel_state()->memory();
+  const auto query = fm4_static_recomp::QuickRaceLapsQuery(
+      reinterpret_cast<const char*>(memory->virtual_membase() + r4.u32), laps);
+  if (!query) {
+    return;
+  }
+  static std::mutex mutex;
+  static std::unordered_map<int, uint32_t> copies;
+  const std::lock_guard lock(mutex);
+  uint32_t& address = copies[laps];
+  if (!address) {
+    address = memory->SystemHeapAlloc(uint32_t(query->size() + 1));
+    std::memcpy(memory->virtual_membase() + address, query->c_str(), query->size() + 1);
+    REXLOG_INFO("Quick Race laps: track select shows {}", laps);
+  }
+  r4.u64 = address;
 }
 
 bool Fm4SkipVblankCallback() {

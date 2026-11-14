@@ -37,6 +37,7 @@ set(FM4_HOST_SOURCES
     src/audio_gain.cpp
     src/custom_music.cpp
     src/mixer_options.cpp
+    src/quick_race_laps.cpp
     src/car_dirt.cpp
     src/code_image_check.cpp
     src/shadow_map.cpp
@@ -56,6 +57,7 @@ set(FM4_HOST_SOURCES
     src/input/prompt_strings.cpp
     src/input/prompt_swap.cpp
     src/ui/controls_page.cpp
+    src/ui/gameplay_page.cpp
     src/ui/graphics_page.cpp
     src/ui/hostui/glyph_atlas.cpp
     src/ui/hostui/host_ui.cpp
@@ -114,6 +116,7 @@ if(FM4_BUILD_TESTS)
         tests/controls_page_test.cpp
         tests/controller_layout_test.cpp
         tests/mixer_options_test.cpp
+        tests/gameplay_page_test.cpp
         src/car_dirt.cpp
         src/audio_gain.cpp
         src/dlc_licenses.cpp
@@ -121,6 +124,7 @@ if(FM4_BUILD_TESTS)
         src/shadow_map.cpp
         src/file_open_log.cpp
         src/mixer_options.cpp
+        src/quick_race_laps.cpp
         src/game_language.cpp
         src/string_log.cpp
         src/config/host_config.cpp
@@ -137,6 +141,7 @@ if(FM4_BUILD_TESTS)
         src/ui/hostui/vector_font.cpp
         src/ui/hostui/menu.cpp
         src/ui/controls_page.cpp
+        src/ui/gameplay_page.cpp
         src/ui/graphics_page.cpp
     )
     # Away from the game's staged runtime, which is only as new as the last game build;
