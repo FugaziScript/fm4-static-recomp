@@ -45,6 +45,9 @@ constexpr auto kStatusInterval = 1s;
 constexpr int kRumbleStep = 1024;
 // How often the force device is opened again while effect calls keep failing.
 constexpr auto kReopenInterval = 2s;
+// Openings in a row after which a failing device is left alone until it is plugged in again:
+// a wedged driver (Thrustmaster's) does not come back from being opened again.
+constexpr uint32_t kMaxFailedReopens = 5;
 
 bool WindowFocused() {
 #if defined(_WIN32)
@@ -175,7 +178,10 @@ struct DeviceMonitor::Impl {
   // the force device is opened again, which resets it, at most this often.
   bool failed = false;
   Clock::time_point reopened_at{};
-  uint32_t reopens = 0;
+  uint32_t reopens = 0, failed_reopens = 0;
+  // After kMaxFailedReopens the force device given up on (its joystick ID: plugged in again, it
+  // gets a new one); 0 while forces play.
+  SDL_JoystickID given_up = 0;
   int test_stage = 0;
   bool test_rumble = false;
   Clock::time_point test_next{};
@@ -418,16 +424,37 @@ struct DeviceMonitor::Impl {
       haptic_status = "off";
       return;
     }
+    const Device* target = ForceTarget(snap, settings);
+    if (given_up) {
+      if (!target || target->id == given_up) {
+        haptic_status = "the wheel stopped taking forces: unplug it and plug it in again";
+        return;
+      }
+      REXLOG_INFO("Wheel force feedback: the force device is back; playing again");
+      given_up = 0;
+      failed = false;
+      failed_reopens = 0;
+    }
+    if (failed && failed_reopens >= kMaxFailedReopens) {
+      given_up = target ? target->id : haptic_owner;
+      REXLOG_WARN("Wheel force feedback: the force device still refuses effects after {} "
+                  "openings; no forces until it is unplugged and plugged in again",
+                  failed_reopens);
+      CloseHaptic();
+      haptic_status = "the wheel stopped taking forces: unplug it and plug it in again";
+      return;
+    }
     if (failed && Clock::now() - reopened_at >= kReopenInterval) {
       failed = false;
       reopened_at = Clock::now();
       ++reopens;
+      ++failed_reopens;
       REXLOG_WARN("Wheel force feedback: an effect call failed; opening the force device again "
                   "(reopen {}). Close other programs that use the wheel (Thrustmaster Control "
                   "Panel, Game Controllers) while playing.", reopens);
       CloseHaptic();
     }
-    if (!OpenHaptic(ForceTarget(snap, settings))) {
+    if (!OpenHaptic(target)) {
       return;
     }
     std::array<Slot, kSlots + 1> slots_now;
@@ -479,6 +506,10 @@ struct DeviceMonitor::Impl {
       }
     }
     Rumble(left, right);
+    if (!failed) {
+      // The device took this pass's effects: whatever failed before was passing.
+      failed_reopens = 0;
+    }
   }
 
   void LogError(const char* what, int slot) {
@@ -725,7 +756,8 @@ struct DeviceMonitor::Impl {
           engine ? RumbleMagnitude(0, 65535, test_settings) : RumbleMagnitude(65535, 0, test_settings);
       test_id = SDL_CreateHapticEffect(haptic, &buzz);
       if (test_id < 0 || !SDL_RunHapticEffect(haptic, test_id, 1)) {
-        haptic_status = std::string("rumble test failed: ") + SDL_GetError();
+        haptic_status = std::string("rumble test failed: ") + SDL_GetError() +
+                      "; if it keeps failing, unplug the wheel and plug it in again";
         REXLOG_WARN("Wheel force feedback: {}", haptic_status);
         CloseHaptic();
         test_stage = 0;
@@ -745,7 +777,8 @@ struct DeviceMonitor::Impl {
     pulse.constant.level = test_stage == 1 ? level : int16_t(-level);
     test_id = SDL_CreateHapticEffect(haptic, &pulse);
     if (test_id < 0 || !SDL_RunHapticEffect(haptic, test_id, 1)) {
-      haptic_status = std::string("test failed: ") + SDL_GetError();
+      haptic_status = std::string("test failed: ") + SDL_GetError() +
+                      "; if it keeps failing, unplug the wheel and plug it in again";
       REXLOG_WARN("Wheel force feedback: {}", haptic_status);
       CloseHaptic();
       test_stage = 0;

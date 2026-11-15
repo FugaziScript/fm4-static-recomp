@@ -49,6 +49,11 @@ and when the game has sent nothing for 200 ms. The game's controller rumble can 
 vibration on top, on bases that can play one: a slow one for the road (kerbs, gravel, hits)
 and a fast one for the engine.
 
+If the wheel's driver refuses effects, the game opens the force device again every 2 s. After
+five tries in a row that do not help, it stops and plays no forces until the wheel is unplugged
+and plugged in again: Thrustmaster's driver (T150) can stop taking effects until then. Close
+programs that use the wheel (Thrustmaster Control Panel, Game Controllers) while playing.
+
 The hook addresses were found in the 1.0 code image. The Rev 1 entries in
 `config/rexglue/releases/rev1.toml` still need `tools/release_parity.py` against a Rev 1 disc.
 
