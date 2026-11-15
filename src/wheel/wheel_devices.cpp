@@ -40,7 +40,9 @@ constexpr auto kConditionInterval = 40ms;
 constexpr auto kHeartbeat = 200ms;
 // How often a running effect is started again, in case the driver stopped it.
 constexpr auto kStatusInterval = 1s;
-constexpr auto kRumbleInterval = 20ms;
+// The rumble's strength in steps of 1/32, so the engine's slowly changing revs do not ask for a
+// new strength every frame.
+constexpr int kRumbleStep = 1024;
 // How often the force device is opened again while effect calls keep failing.
 constexpr auto kReopenInterval = 2s;
 
@@ -151,10 +153,18 @@ struct DeviceMonitor::Impl {
   uint32_t features = 0;
   std::string ffb_name, haptic_status = "no force feedback device";
   std::array<Played, kSlots + 1> played;
-  SDL_HapticEffectID rumble_id = -1, test_id = -1;
-  bool rumble_running = false;
-  SDL_HapticEffect rumble_last{};
-  Clock::time_point rumble_at{};
+  SDL_HapticEffectID test_id = -1;
+  // The game's rumble as two vibrations: the left (road) motor's slow one and the right (engine)
+  // motor's fast one. With `combined` (the device took only one more effect), one plays both.
+  struct Buzz {
+    SDL_HapticEffectID id = -1;
+    bool running = false;
+    int16_t magnitude = 0;
+    uint16_t period = 0;
+    uint32_t sent = 0;
+  };
+  std::array<Buzz, 2> buzz;
+  bool combined = false;
   bool output_on = false;
   // Diagnostics: why the forces are off, effect updates since the last stats line, SDL errors.
   std::string gate_reason = "starting";
@@ -369,14 +379,17 @@ struct DeviceMonitor::Impl {
       }
       p = {};
     }
-    if (rumble_id >= 0) {
-      SDL_DestroyHapticEffect(haptic, rumble_id);
+    for (Buzz& b : buzz) {
+      if (b.id >= 0) {
+        SDL_DestroyHapticEffect(haptic, b.id);
+      }
+      b = {};
     }
+    combined = false;
     if (test_id >= 0) {
       SDL_DestroyHapticEffect(haptic, test_id);
     }
-    rumble_id = test_id = -1;
-    rumble_running = false;
+    test_id = -1;
     SDL_CloseHaptic(haptic);
     haptic = nullptr;
     haptic_owner = 0;
@@ -392,7 +405,9 @@ struct DeviceMonitor::Impl {
     for (Played& p : played) {
       p.running = false;
     }
-    rumble_running = false;
+    for (Buzz& b : buzz) {
+      b.running = false;
+    }
     output_on = false;
   }
 
@@ -433,7 +448,9 @@ struct DeviceMonitor::Impl {
     }
     if (clear_now) {
       SDL_StopHapticEffects(haptic);
-      rumble_running = false;
+      for (Buzz& b : buzz) {
+        b.running = false;
+      }
       for (Played& p : played) {
         if (p.id >= 0) {
           SDL_DestroyHapticEffect(haptic, p.id);
@@ -461,7 +478,7 @@ struct DeviceMonitor::Impl {
         Play(i, slots_now[i], now);
       }
     }
-    Rumble(RumbleMagnitude(left, right, settings), left, right);
+    Rumble(left, right);
   }
 
   void LogError(const char* what, int slot) {
@@ -497,6 +514,12 @@ struct DeviceMonitor::Impl {
                             e.negative_coefficient, e.positive_saturation, e.negative_saturation,
                             ConditionValues(e, settings).right_coeff);
       }
+    }
+    if (buzz[0].id >= 0 || buzz[1].id >= 0) {
+      line += fmt::format(" | rumble road {} sent {} engine {} sent {}{}", buzz[0].magnitude,
+                          buzz[0].sent, buzz[1].magnitude, buzz[1].sent,
+                          combined ? " (one vibration)" : "");
+      buzz[0].sent = buzz[1].sent = 0;
     }
     if (!line.empty()) {
       REXLOG_INFO("Wheel force feedback stats ({}){}", gate_reason.empty() ? "playing" : gate_reason,
@@ -576,48 +599,73 @@ struct DeviceMonitor::Impl {
     }
   }
 
-  void Rumble(int16_t magnitude, uint16_t left, uint16_t right) {
+  void Rumble(uint16_t left, uint16_t right) {
     if (failed || !(features & SDL_HAPTIC_SINE)) {
       return;
     }
-    const auto now = Clock::now();
-    if (magnitude <= 0) {
-      if (rumble_id >= 0 && rumble_running) {
-        SDL_StopHapticEffect(haptic, rumble_id);
-        rumble_running = false;
+    if (combined) {
+      PlayBuzz(buzz[0], RumbleMagnitude(left, right, settings), right > left ? 25 : 60);
+      return;
+    }
+    // The road rumbles (kerbs, gravel, hits), the engine buzzes: two waves, so the road's
+    // pulses are not lost in the engine's buzz.
+    PlayBuzz(buzz[0], RumbleMagnitude(left, 0, settings), 60);
+    PlayBuzz(buzz[1], RumbleMagnitude(0, right, settings), 25);
+  }
+
+  void PlayBuzz(Buzz& b, int16_t magnitude, uint16_t period) {
+    if (magnitude > 0) {
+      magnitude = int16_t(std::clamp((magnitude + kRumbleStep / 2) / kRumbleStep * kRumbleStep,
+                                     kRumbleStep, 32767));
+    } else {
+      magnitude = 0;
+    }
+    if (magnitude == 0) {
+      if (b.id >= 0 && b.running) {
+        SDL_StopHapticEffect(haptic, b.id);
       }
+      b.running = false;
+      b.magnitude = 0;
       return;
     }
     SDL_HapticEffect effect{};
     effect.type = SDL_HAPTIC_SINE;
     effect.periodic.direction.type = SDL_HAPTIC_STEERING_AXIS;
     effect.periodic.length = SDL_HAPTIC_INFINITY;
-    // The right (engine) motor buzzes, the left (road) one rumbles.
-    effect.periodic.period = right > left ? 25 : 60;
+    effect.periodic.period = period;
     effect.periodic.magnitude = magnitude;
-    if (rumble_id < 0) {
-      rumble_id = SDL_CreateHapticEffect(haptic, &effect);
-      if (rumble_id < 0) {
+    if (b.id < 0) {
+      b.id = SDL_CreateHapticEffect(haptic, &effect);
+      if (b.id < 0) {
+        if (&b == &buzz[1]) {
+          // The device has no room for a second vibration: the first plays both.
+          REXLOG_WARN("Wheel force feedback: no room for a second vibration ({}); the road and "
+                      "the engine share one", SDL_GetError());
+          combined = true;
+          return;
+        }
         LogError("creating", 0);
         return;
       }
-      rumble_running = SDL_RunHapticEffect(haptic, rumble_id, 1);
-      rumble_last = effect;
-      rumble_at = now;
+      b.magnitude = magnitude;
+      b.period = period;
+      b.running = SDL_RunHapticEffect(haptic, b.id, 1);
+      ++b.sent;
       return;
     }
-    // Like the game's effects: sent only when it changes, at most every 20 ms, and started
-    // again with it (and once a second) for Thrustmaster's driver.
-    const bool changed = std::memcmp(&effect, &rumble_last, sizeof(effect)) != 0;
-    if ((changed && now - rumble_at >= kRumbleInterval) || !rumble_running ||
-        (settings.ffb_periodic_restart && now - rumble_at >= kStatusInterval)) {
-      if (changed && !SDL_UpdateHapticEffect(haptic, rumble_id, &effect)) {
+    // A new strength is only updated, not started again as the game's effects are: starting
+    // a vibration again restarts its wave.
+    if (magnitude != b.magnitude || period != b.period) {
+      if (!SDL_UpdateHapticEffect(haptic, b.id, &effect)) {
         LogError("updating", 0);
         return;
       }
-      rumble_last = effect;
-      rumble_at = now;
-      rumble_running = SDL_RunHapticEffect(haptic, rumble_id, 1);
+      b.magnitude = magnitude;
+      b.period = period;
+      ++b.sent;
+    }
+    if (!b.running) {
+      b.running = SDL_RunHapticEffect(haptic, b.id, 1);
     }
   }
 

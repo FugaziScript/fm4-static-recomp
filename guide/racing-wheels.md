@@ -45,8 +45,9 @@ the game send them; while the wheel is player one, hooks answer those functions
 (`src/wheel/wheel_hooks.cpp`) and play the effects as SDL haptic effects on the force device,
 scaled by STRENGTH and each effect's own share. The forces stop while the game window is in the
 background, in menus and pauses (the game's wheel update says whether the player is driving),
-and when the game has sent nothing for 200 ms. The game's controller rumble can play as a
-vibration on top, on bases that can play one.
+and when the game has sent nothing for 200 ms. The game's controller rumble can play as
+vibration on top, on bases that can play one: a slow one for the road (kerbs, gravel, hits)
+and a fast one for the engine.
 
 The hook addresses were found in the 1.0 code image. The Rev 1 entries in
 `config/rexglue/releases/rev1.toml` still need `tools/release_parity.py` against a Rev 1 disc.
