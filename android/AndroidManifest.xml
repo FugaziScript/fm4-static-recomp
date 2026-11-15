@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FM4 Static Recomp for Android. The package is built on the player's PC from their own disc
+  (tools/android_package.py) and installed on their own device; it is never published. The
+  package name, versions and SDK levels are set when the package is linked.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:installLocation="auto">
+
+    <!-- The renderer is Vulkan only. -->
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x403000"
+        android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <!-- Rumble (SDL's haptics). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- The game opens system-link sockets at its menus; nothing contacts a server. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="FM4 Static Recomp"
+        android:allowBackup="false"
+        android:hasCode="true"
+        android:extractNativeLibs="true"
+        android:isGame="true"
+        android:appCategory="game"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true">
+
+        <profileable android:shell="true" />
+        <meta-data android:name="android.max_aspect" android:value="3.0" />
+
+        <activity
+            android:name="fm4.staticrecomp.Fm4Activity"
+            android:label="FM4 Static Recomp"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:screenOrientation="sensorLandscape"
+            android:resizeableActivity="false"
+            android:alwaysRetainTaskState="true"
+            android:launchMode="singleInstance"
+            android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
+            android:preferMinimalPostProcessing="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

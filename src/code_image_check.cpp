@@ -7,6 +7,10 @@
 #include <bcrypt.h>
 #elif defined(__APPLE__)
 #include <CommonCrypto/CommonDigest.h>
+#else
+// Linux and Android: the SDK's bundled SHA-256 (as its shader pack hashes off Windows).
+#include "thirdparty/crypto/sha256.cpp"
+#include "thirdparty/crypto/sha256.h"
 #endif
 
 #include <array>
@@ -103,7 +107,27 @@ std::string FileSha256(const std::filesystem::path& path) {
   }
   return hex;
 #else
-  return {};
+  sha256::SHA256 hash;
+  std::vector<char> buffer(1 << 20);
+  while (file) {
+    file.read(buffer.data(), std::streamsize(buffer.size()));
+    const auto read = file.gcount();
+    if (read > 0) {
+      hash.add(buffer.data(), size_t(read));
+    }
+  }
+  if (!file.eof()) {
+    return {};
+  }
+  std::array<unsigned char, sha256::SHA256::HashBytes> digest{};
+  hash.getHash(digest.data());
+  static constexpr char kHex[] = "0123456789ABCDEF";
+  std::string hex;
+  for (const unsigned char byte : digest) {
+    hex += kHex[byte >> 4];
+    hex += kHex[byte & 15];
+  }
+  return hex;
 #endif
 }
 

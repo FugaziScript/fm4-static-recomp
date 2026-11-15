@@ -45,7 +45,27 @@ constexpr std::array kAfterGpuPlugin = {
     // The SDK's changes since pinyon-shift-v0.3.0, held at the behaviour FM4 was verified
     // with until each is measured here. The SDK's own default otherwise.
     Default{"fh1_msaa_single_sample", "false"},
-#if defined(__APPLE__)
+#if defined(__ANDROID__)
+    // Android handhelds (Adreno, as Pinyon Shift tunes Forza Horizon): the picture at 1x,
+    // upscaled and sharpened by FSR 1, the lightest upscaler. All of these stay changeable on
+    // the GRAPHICS page.
+    Default{"resolution_scale", "1"},
+    Default{"present_effect", "fsr"},
+    // No anti-aliasing: MSAA draws the scene in two (race) or three (showroom) tiles, the
+    // heaviest work a tiler gets; FXAA is a pass more.
+    Default{"fm4_race_msaa", "off"},
+    Default{"fm4_showroom_msaa", "off"},
+    Default{"swap_post_effect", "none"},
+    // The console's 60 instead of 120, and no road motion blur or showroom depth of field.
+    Default{"fm4_frame_rate", "60"},
+    Default{"fm4_road_detail_blur", "false"},
+    Default{"fm4_depth_of_field", "false"},
+    Default{"spirv_ieee_vertex_math", "true"},
+    // A tiler pays for each render pass: fold clears into the next pass and skip draws that
+    // write nothing, as on the Mac.
+    Default{"fh1_fold_clears", "true"},
+    Default{"fh1_skip_draws_without_effect", "true"},
+#elif defined(__APPLE__)
     // Mac testers observed driver-model clipping with the zero-product emulation.
     Default{"spirv_ieee_vertex_math", "true"},
     // Temporary preview tradeoff: scanning preserved 16 KB-page neighbors on
@@ -75,10 +95,13 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"texture_layer_reloads", "false"},
     Default{"texture_selective_binding_reset", "false"},
     Default{"texture_cache_memory_budget_limits", "false"},
+#if !defined(__ANDROID__)
+    // Android keeps the SDK's own texture copies, tuned for Adreno.
     Default{"vulkan_texture_load_compute_copy", "false"},
     Default{"vulkan_small_texture_copy_views", "false"},
-#if defined(__APPLE__)
-    // The SDK enables FH1's single-pass tiling optimization on macOS. FM4's
+#endif
+#if defined(__APPLE__) || defined(__ANDROID__)
+    // The SDK enables FH1's single-pass tiling optimization on macOS and Android. FM4's
     // 4x MSAA menus need the original tile passes or parts of the UI are
     // clipped and replaced by stale EDRAM contents. Match the Windows path
     // while preserving the console's showroom and race MSAA settings.

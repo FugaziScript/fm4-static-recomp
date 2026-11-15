@@ -10,6 +10,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # SDL uses native Windows HID and XInput backends here; its optional libusb
 # probe should not make a normal Windows build look like it lacks a dependency.
 set(SDL_HIDAPI_LIBUSB OFF CACHE BOOL "Disable optional libusb HID backend on Windows" FORCE)
+if(ANDROID)
+    # Every library in the package is position independent, the generated code's included.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 option(FM4_BUILD_TESTS "Add the fm4_unit_tests target (built only when asked for)" OFF)
 option(FM4_TESTS_ONLY "Configure native tests without discs or generated game code" OFF)
@@ -78,6 +82,19 @@ if(WIN32)
     )
     fm4_static_recomp_attach_rexglue(fm4_static_recomp)
     target_link_libraries(fm4_static_recomp PRIVATE bcrypt d3d12 dxgi rex::gpu-fh1 renderdoc)
+elseif(ANDROID)
+    # SDL's activity loads the game as libmain.so and calls its SDL_main; the runtime, the GPU
+    # plugin and the facades are libraries beside it (as Pinyon Shift packages Forza Horizon).
+    add_library(fm4_static_recomp SHARED ${FM4_HOST_SOURCES})
+    set_target_properties(fm4_static_recomp PROPERTIES OUTPUT_NAME main)
+    # Generated functions are default-visibility weak symbols: bind calls between them inside
+    # the library instead of through the PLT.
+    target_link_options(fm4_static_recomp PRIVATE -Wl,-Bsymbolic-functions)
+    fm4_static_recomp_attach_rexglue(fm4_static_recomp)
+    # renderdoc: the header the SDK's Vulkan headers include.
+    target_link_libraries(fm4_static_recomp PRIVATE rex::gpu-fh1 renderdoc)
+    # code_image_check.cpp hashes default.xex with the SDK's bundled SHA-256.
+    target_include_directories(fm4_static_recomp PRIVATE "${REXSDK_DIR}")
 else()
     add_executable(fm4_static_recomp
         ${FM4_HOST_SOURCES}

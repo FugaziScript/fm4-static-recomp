@@ -20,6 +20,17 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     endif()
 endif()
 
+# Android, as Pinyon Shift builds Forza Horizon for it: every targeted handheld is ARMv8.2 or
+# later (LSE atomics instead of LL/SC loops, the SDK included), and the kernels use 4 KB pages,
+# so guest physical-heap accesses need no run-time host offset.
+if(ANDROID)
+    set(FM4_ANDROID_MARCH "armv8.2-a" CACHE STRING
+        "-march for every Android target, the SDK and its libraries included")
+    add_compile_options(-march=${FM4_ANDROID_MARCH})
+    set(REXGLUE_ARM64_MARCH ${FM4_ANDROID_MARCH})
+    add_compile_definitions(REX_PHYSICAL_HEAP_4K_PAGES=1)
+endif()
+
 if(REXSDK_PREFIX)
     find_package(rexglue CONFIG REQUIRED PATHS "${REXSDK_PREFIX}" NO_DEFAULT_PATH)
     # The SDK's own upscaler rules, run here as an in-tree SDK runs them at configure: they find
@@ -37,6 +48,14 @@ else()
         "${CMAKE_CURRENT_BINARY_DIR}/rexglue-artifacts"
         CACHE PATH "ShiftGlue artifacts for the FM4 host build" FORCE)
     add_subdirectory("${REXSDK_DIR}" rexglue-sdk EXCLUDE_FROM_ALL)
+    if(ANDROID)
+        # Calls inside the runtime libraries bind locally instead of through the PLT.
+        foreach(_runtime_library IN ITEMS rexruntime rexgpu-fh1)
+            if(TARGET ${_runtime_library})
+                target_link_options(${_runtime_library} PRIVATE -Wl,-Bsymbolic-functions)
+            endif()
+        endforeach()
+    endif()
     if(APPLE)
         set(FM4_STATIC_RECOMP_REXGLUE_CODEGEN
             "${REXSDK_DIR}/out/mac-arm64/rexglue"
