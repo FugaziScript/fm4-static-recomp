@@ -122,5 +122,6 @@ Below a line on the same tab, for an HDR display with Windows HDR on.
 | HDR GAMMA | How dark the shadows are: 2.2 as a usual SDR display, 2.0 as the game encodes its picture, SRGB lifts the darkest shades most, 2.4 is darker. |
 | HDR SHADOW LIFT | Brings out the darkest parts (cockpits, tunnels) by up to this many stops without raising the paper white; mid tones barely move and highlights not at all. |
 
-Frame generation stays off with HDR. After HDR has been on, the game presents through Vulkan
-rather than DXGI until it is started again.
+Frame generation works with HDR too; the HUD then goes over the generated frames at the paper
+white. After HDR has been on, the game presents through Vulkan rather than DXGI until it is
+started again.
