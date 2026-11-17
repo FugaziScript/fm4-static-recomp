@@ -37,6 +37,9 @@ OPTIONAL_LIBRARIES = (
     "libmain_hook.so",
     "libfile_redirect_hook.so",
     "libgsl_alloc_hook.so",
+    # Lossless Scaling frame generation (lsfg-vk's framegen, MIT); the shaders come from the
+    # player's own Lossless.dll on the device.
+    "liblsfg_framegen.so",
 )
 EXE = ".exe" if os.name == "nt" else ""
 BAT = ".bat" if os.name == "nt" else ""
@@ -81,7 +84,9 @@ def main() -> int:
     run(tools / f"aapt2{EXE}", "link", "-o", unsigned, "-I", android_jar,
         "--manifest", staging / "AndroidManifest.xml",
         "--min-sdk-version", MIN_SDK, "--target-sdk-version", TARGET_SDK,
-        "--version-name", args.version_name, "--version-code", args.version_code)
+        "--version-name", args.version_name, "--version-code", args.version_code,
+        # FM4_ANDROID_DEBUGGABLE=1: a debuggable APK, which simpleperf can profile.
+        *(["--debug-mode"] if os.environ.get("FM4_ANDROID_DEBUGGABLE") == "1" else []))
 
     sdl_java = rexsdk / "thirdparty/sdl3/android-project/app/src/main/java"
     sources = sorted(sdl_java.rglob("*.java")) + sorted((ROOT / "android/java").rglob("*.java"))
@@ -118,18 +123,21 @@ def main() -> int:
     # Mesa Turnip for Adreno (an adrenotools package: meta.json and the driver library), which
     # the activity installs into state/drivers. Stored uncompressed: the activity reads its size
     # through openFd.
-    driver = Path(os.environ.get("FM4_ANDROID_DRIVER",
-                                 ROOT.parent / "android-toolchain/drivers/turnip-gen8-v37"))
+    # Every adrenotools package (a folder with meta.json) under the toolchain's drivers folder.
+    drivers_root = Path(os.environ.get("FM4_ANDROID_DRIVERS", ROOT.parent / "android-toolchain/drivers"))
+    drivers = sorted(path for path in drivers_root.iterdir()
+                     if (path / "meta.json").is_file()) if drivers_root.is_dir() else []
     with zipfile.ZipFile(unsigned, "a", compression=zipfile.ZIP_DEFLATED) as apk:
         apk.write(staging / "dex" / "classes.dex", "classes.dex")
         for library in stripped:
             apk.write(library, f"lib/arm64-v8a/{library.name}")
-        if (driver / "meta.json").is_file():
+        for driver in drivers:
             for path in sorted(driver.iterdir()):
                 apk.write(path, f"assets/drivers/{driver.name}/{path.name}",
                           compress_type=zipfile.ZIP_STORED)
-        else:
-            print(f"(no Turnip driver at {driver}, left out)")
+            print(f"driver {driver.name} bundled")
+        if not drivers:
+            print(f"(no GPU drivers under {drivers_root}, left out)")
 
     aligned = staging / "aligned.apk"
     run(tools / f"zipalign{EXE}", "-f", "-p", "4", unsigned, aligned)

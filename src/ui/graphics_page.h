@@ -57,4 +57,15 @@ struct GraphicsPageServices {
 std::unique_ptr<hostui::MenuScreen> CreateGraphicsPage(config::HostConfig& config,
                                                        GraphicsPageServices services);
 
+// The LIGHTING page: bloom, exposure and saturation against each track's own
+// values, saved to the same graphics.toml as the GRAPHICS page.
+std::unique_ptr<hostui::MenuScreen> CreateLightingPage(config::HostConfig& config,
+                                                       GraphicsPageServices services);
+#if defined(__ANDROID__)
+// The ANDROID page: the Vulkan driver and the renderer's Adreno tuning, saved to graphics.toml
+// for the next start.
+std::unique_ptr<hostui::MenuScreen> CreateAndroidPage(config::HostConfig& config,
+                                                      GraphicsPageServices services);
+#endif
+
 }  // namespace fm4_static_recomp::ui

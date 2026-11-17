@@ -56,8 +56,10 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"fm4_race_msaa", "off"},
     Default{"fm4_showroom_msaa", "off"},
     Default{"swap_post_effect", "none"},
-    // The console's 60 instead of 120, and no road motion blur or showroom depth of field.
-    Default{"fm4_frame_rate", "60"},
+    // 40 fps (an even 3 refreshes of a 120 Hz handheld screen) with FSR 1 at full sharpness,
+    // as tested on the Retroid Pocket 6; no road motion blur or showroom depth of field.
+    Default{"fm4_frame_rate", "40"},
+    Default{"present_upscaler_sharpness", "100"},
     Default{"fm4_road_detail_blur", "false"},
     Default{"fm4_depth_of_field", "false"},
     Default{"spirv_ieee_vertex_math", "true"},
@@ -86,14 +88,27 @@ constexpr std::array kAfterGpuPlugin = {
     Default{"fh1_fold_clears", "false"},
     Default{"fh1_skip_draws_without_effect", "false"},
 #endif
+#if defined(__ANDROID__)
+    // The SDK's Adreno settings, clean on the Retroid Pocket 6 with Turnip V37: resolves
+    // 3.2 to 1.1 ms and texture reloads 2.35 to 0.5 ms a frame. All on the ANDROID page.
+    Default{"fh1_resolve_to_textures", "true"},
+    Default{"fh1_direct_resolve_outdated", "true"},
+    Default{"fh1_native_stencil_export", "true"},
+    Default{"fh1_async_specialized_passes", "true"},
+    Default{"texture_band_reloads", "true"},
+    Default{"texture_layer_reloads", "true"},
+    Default{"texture_selective_binding_reset", "true"},
+    Default{"fm4_shadow_map_size", "512"},
+#else
     Default{"fh1_resolve_to_textures", "false"},
     Default{"fh1_direct_resolve_outdated", "false"},
-    Default{"fh1_stable_alpha_to_coverage", "false"},
     Default{"fh1_native_stencil_export", "false"},
     Default{"fh1_async_specialized_passes", "false"},
     Default{"texture_band_reloads", "false"},
     Default{"texture_layer_reloads", "false"},
     Default{"texture_selective_binding_reset", "false"},
+#endif
+    Default{"fh1_stable_alpha_to_coverage", "false"},
     Default{"texture_cache_memory_budget_limits", "false"},
 #if !defined(__ANDROID__)
     // Android keeps the SDK's own texture copies, tuned for Adreno.
@@ -169,7 +184,13 @@ void ApplyBuiltInDefaults(DefaultStage stage) {
 // Intel GPUs flicker the scene's lights with the generic resolve and EDRAM transfer passes.
 void ApplyGpuVendorDefaults(uint32_t vendor_id) {
   Apply(std::array{
-      Default{"fh1_specialize_edram_passes", vendor_id == kIntelVendorId ? "true" : "false"}});
+      Default{"fh1_specialize_edram_passes",
+#if defined(__ANDROID__)
+              "true"
+#else
+              vendor_id == kIntelVendorId ? "true" : "false"
+#endif
+      }});
 }
 
 }  // namespace fm4_static_recomp

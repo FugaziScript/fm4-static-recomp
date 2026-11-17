@@ -8,8 +8,10 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -26,7 +28,8 @@ import org.libsdl.app.SDLActivity;
  *   files/game   the files extracted from the player's disc (the folder holding default.xex)
  *   files/state  saves, settings (config/graphics.toml), the shader cache and logs
  *
- * Tooling can pass more game arguments as a string-array extra named args:
+ * More game arguments come from state/config/arguments.txt (one per line) and, for tooling, a
+ * string-array extra named args:
  *
  *   adb shell am start -n fm4.staticrecomp/.Fm4Activity --esa args --log_level=debug
  */
@@ -48,13 +51,28 @@ public class Fm4Activity extends SDLActivity {
         // Custom Vulkan drivers (Mesa Turnip) copied into state/drivers, which
         // android_gpu_driver picks from.
         setenv("REX_ANDROID_DRIVERS_DIR", new File(base, "state/drivers").getAbsolutePath());
+        // Lossless Scaling frame generation reads its shaders from the player's own
+        // Lossless.dll, put in state/lsfg (never packaged).
+        setenv("REX_LSFG_DLL", new File(base, "state/lsfg/Lossless.dll").getAbsolutePath());
         for (String folder : new String[] {"game", "state/user", "state/cache", "state/config",
-                                           "state/logs", "state/drivers"}) {
+                                           "state/logs", "state/drivers", "state/lsfg"}) {
             new File(base, folder).mkdirs();
         }
         // android_gpu_driver's default, auto, loads the recommended driver: the bundled Turnip
         // on Qualcomm's chips, the system's elsewhere.
-        if (installBundledDriver(new File(base, "state/drivers/" + BUNDLED_DRIVER))
+        // Every driver the package carries goes to state/drivers, where the ANDROID page's
+        // GPU DRIVER row picks one.
+        try {
+            String[] drivers = getAssets().list("drivers");
+            if (drivers != null) {
+                for (String driver : drivers) {
+                    installBundledDriver(driver, new File(base, "state/drivers/" + driver));
+                }
+            }
+        } catch (IOException error) {
+            Log.w(TAG, "bundled drivers not listed", error);
+        }
+        if (new File(base, "state/drivers/" + BUNDLED_DRIVER + "/meta.json").isFile()
                 && "QTI".equalsIgnoreCase(Build.SOC_MANUFACTURER)) {
             setenv("REX_ANDROID_RECOMMENDED_DRIVER", BUNDLED_DRIVER);
         }
@@ -77,6 +95,18 @@ public class Fm4Activity extends SDLActivity {
         arguments.add("--cache_root=" + new File(base, "state/cache").getAbsolutePath());
         arguments.add("--fm4_config_root=" + new File(base, "state/config").getAbsolutePath());
         arguments.add("--log_file=" + new File(base, "state/logs/runtime.log").getAbsolutePath());
+        // More arguments, one per line, from state/config/arguments.txt (kept across starts from
+        // the app icon), then the intent's.
+        File file = new File(base, "state/config/arguments.txt");
+        if (file.isFile()) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                for (String line; (line = reader.readLine()) != null; ) {
+                    if (line.trim().startsWith("--")) arguments.add(line.trim());
+                }
+            } catch (IOException error) {
+                Log.w(TAG, "arguments.txt not read", error);
+            }
+        }
         Intent intent = getIntent();
         String[] given = intent != null ? intent.getStringArrayExtra("args") : null;
         if (given != null) Collections.addAll(arguments, given);
@@ -85,9 +115,9 @@ public class Fm4Activity extends SDLActivity {
 
     // Copies the packaged driver's files where android_gpu_driver finds them, unless the same
     // sizes are already there; true when the driver is in place.
-    private boolean installBundledDriver(File folder) {
+    private boolean installBundledDriver(String driver, File folder) {
         AssetManager assets = getAssets();
-        String source = "drivers/" + BUNDLED_DRIVER;
+        String source = "drivers/" + driver;
         try {
             String[] names = assets.list(source);
             if (names == null || names.length == 0) return false;

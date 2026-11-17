@@ -48,10 +48,119 @@ struct Setting {
   std::vector<Choice> choices;  // none for a whole number in [low, high]
   int low = 0;
   int high = 0;
+  // Saved for the next start only: the page does not change it in a running game.
+  bool restart = false;
 };
 
+#if defined(__ANDROID__)
+// Handhelds: down to 30, e.g. 40 on a 120 Hz screen to save power.
+const Setting kFrameRate = {"fm4_frame_rate", false, {}, 30, 240};
+#else
 const Setting kFrameRate = {"fm4_frame_rate", false, {}, 60, 240};
+#endif
 const Setting kVsync = {"vulkan_present_mode", true, {{"OFF", "immediate"}, {"ON", "fifo"}}};
+const Setting kFrameGeneration = {"present_frame_generation", false,
+                                  {{"OFF", "false"}, {"ON", "true"}}};
+const Setting kHud = {"fh1_native_hud", false, {{"UPSCALED", "false"}, {"NATIVE", "true"}}};
+// LIGHTING: each scales or offsets the track's own value (TrackSettings.xml), applied to the
+// game's bloom and tonemap draws (shiftglue-sdk fm4_lighting.cpp).
+const Setting kLightingBloom = {"fm4_lighting_bloom",
+                                false,
+                                {{"OFF", "0"},
+                                 {"25 %", "25"},
+                                 {"50 %", "50"},
+                                 {"75 %", "75"},
+                                 {"GAME", "100"},
+                                 {"125 %", "125"},
+                                 {"150 %", "150"},
+                                 {"200 %", "200"}}};
+const Setting kLightingBloomThreshold = {"fm4_lighting_bloom_threshold",
+                                         false,
+                                         {{"50 %", "50"},
+                                          {"75 %", "75"},
+                                          {"GAME", "100"},
+                                          {"150 %", "150"},
+                                          {"200 %", "200"},
+                                          {"300 %", "300"},
+                                          {"400 %", "400"}}};
+const Setting kLightingExposure = {"fm4_lighting_exposure",
+                                   false,
+                                   {{"-1.5 EV", "-150"},
+                                    {"-1 EV", "-100"},
+                                    {"-0.75 EV", "-75"},
+                                    {"-0.5 EV", "-50"},
+                                    {"-0.25 EV", "-25"},
+                                    {"GAME", "0"},
+                                    {"+0.25 EV", "25"},
+                                    {"+0.5 EV", "50"},
+                                    {"+0.75 EV", "75"},
+                                    {"+1 EV", "100"},
+                                    {"+1.5 EV", "150"}}};
+// The cars' ambient light and a floor under their colours (shiftglue-sdk fm4_lighting.cpp).
+const Setting kCockpitAmbient = {"fm4_lighting_car_ambient",
+                                 false,
+                                 {{"GAME", "100"},
+                                  {"150 %", "150"},
+                                  {"200 %", "200"},
+                                  {"300 %", "300"},
+                                  {"400 %", "400"},
+                                  {"600 %", "600"}}};
+const Setting kCockpitShadowLift = {"fm4_lighting_car_shadow_lift",
+                                   false,
+                                   {{"OFF", "0"},
+                                    {"1", "10"},
+                                    {"2", "25"},
+                                    {"3", "50"},
+                                    {"4", "100"},
+                                    {"5", "200"},
+                                    {"6", "400"}}};
+// HDR output (shiftglue-sdk vulkan_presenter.cpp, fh1_hdr_gain.cpp). The nits are doubles,
+// whose cvars read back with six decimals.
+const Setting kHdr = {"present_hdr", false, {{"OFF", "false"}, {"ON", "true"}}};
+const Setting kHdrPeak = {"present_hdr_peak_nits",
+                          false,
+                          {{"400 NITS", "400.000000"},
+                           {"600 NITS", "600.000000"},
+                           {"800 NITS", "800.000000"},
+                           {"1000 NITS", "1000.000000"},
+                           {"1500 NITS", "1500.000000"},
+                           {"2000 NITS", "2000.000000"},
+                           {"4000 NITS", "4000.000000"}}};
+const Setting kHdrPaperWhite = {"present_hdr_paper_white_nits",
+                                false,
+                                {{"100 NITS", "100.000000"},
+                                 {"150 NITS", "150.000000"},
+                                 {"200 NITS", "200.000000"},
+                                 {"250 NITS", "250.000000"},
+                                 {"300 NITS", "300.000000"},
+                                 {"400 NITS", "400.000000"}}};
+// How the HDR output decodes the game's picture: 0 is piecewise sRGB, whose linear toe lifts
+// the darkest shades; the game encodes with 2.0 (a square root).
+const Setting kHdrShadowLift = {"present_hdr_shadow_lift",
+                                false,
+                                {{"OFF", "0"},
+                                 {"+0.5 EV", "50"},
+                                 {"+1 EV", "100"},
+                                 {"+1.5 EV", "150"},
+                                 {"+2 EV", "200"},
+                                 {"+2.5 EV", "250"},
+                                 {"+3 EV", "300"}}};
+const Setting kHdrGamma = {"present_hdr_gamma",
+                           false,
+                           {{"SRGB", "0.000000"},
+                            {"2.0", "2.000000"},
+                            {"2.2", "2.200000"},
+                            {"2.4", "2.400000"}}};
+const Setting kLightingSaturation = {"fm4_lighting_saturation",
+                                     false,
+                                     {{"50 %", "50"},
+                                      {"75 %", "75"},
+                                      {"90 %", "90"},
+                                      {"GAME", "100"},
+                                      {"110 %", "110"},
+                                      {"FULL COLOUR", "118"},
+                                      {"130 %", "130"},
+                                      {"150 %", "150"}}};
 const Setting kDetail = {"fm4_level_of_detail",
                          true,
                          {{"CONSOLE", "console"},
@@ -65,7 +174,8 @@ const Setting kUpscaler = {"present_effect",
                             {"FSR 2", "fsr2"},
                             {"FSR 3", "fsr3"},
                             {"FSR 4", "fsr4"},
-                            {"DLSS", "dlss"}}};
+                            {"DLSS", "dlss"},
+                            {"GSR 2", "gsr2"}}};
 const Setting kDlssPreset = {
     "present_dlss_preset",
     true,
@@ -107,6 +217,60 @@ const Setting kSoftParticles = {"fm4_soft_particles", false, {{"OFF", "false"}, 
 const Setting kCrowds = {
     "fm4_crowds_every_race", false, {{"CONSOLE", "false"}, {"EVERY RACE", "true"}}};
 
+#if defined(__ANDROID__)
+// The ANDROID page (Android only): the Vulkan driver and the renderer's Adreno tuning, for
+// trying combinations on a handheld. Saved to graphics.toml; the rows read once at startup
+// (driver, shaders, startup-built passes) apply from the next start, the rest live.
+const std::vector<Choice> kOffOn = {{"OFF", "false"}, {"ON", "true"}};
+const Setting kGpuDriver = {"android_gpu_driver",
+                            true,
+                            {{"AUTO", "auto"},
+                             {"SYSTEM", "system"},
+                             {"TURNIP V39", "turnip-gen8-v39"},
+                             {"TURNIP V37", "turnip-gen8-v37"}},
+                            0,
+                            0,
+                            true};
+const Setting kGpuDriverMode = {
+    "android_gpu_driver_env", true,
+    {{"DEFAULT", ""}, {"GMEM", "TU_DEBUG=gmem"}, {"SYSMEM", "TU_DEBUG=sysmem"}}, 0, 0, true};
+const Setting kShadowMapSize = {
+    "fm4_shadow_map_size", false, {{"AUTO", "0"}, {"512", "512"}, {"768", "768"}}, 0, 0, true};
+const Setting kResolveToTextures = {"fh1_resolve_to_textures", false, kOffOn, 0, 0};
+const Setting kDirectResolves = {"fh1_direct_resolve_outdated", false, kOffOn, 0, 0};
+const Setting kSpecializedEdram = {"fh1_specialize_edram_passes", false, kOffOn, 0, 0};
+const Setting kAsyncEdram = {"fh1_async_specialized_passes", false, kOffOn, 0, 0, true};
+const Setting kBandReloads = {"texture_band_reloads", false, kOffOn, 0, 0};
+const Setting kLayerReloads = {"texture_layer_reloads", false, kOffOn, 0, 0};
+const Setting kSelectiveReset = {"texture_selective_binding_reset", false, kOffOn, 0, 0};
+const Setting kStencilExport = {"fh1_native_stencil_export", false, kOffOn, 0, 0, true};
+const Setting kSignShaders = {"spirv_specialize_texture_signs", false, kOffOn, 0, 0, true};
+const Setting kFpsCounter = {"fm4_show_fps", false, kOffOn, 0, 0, true};
+const Setting kSgsr2Fast = {"sgsr2_fast", false, {{"FULL", "false"}, {"FAST", "true"}}, 0, 0};
+// What a temporal upscaler (GSR 2, FSR 2/3) adds to the game's frame, each off for diagnosis.
+const Setting kCameraMotion = {"present_upscaler_camera", false, kOffOn, 0, 0};
+const Setting kJitter = {"present_upscaler_jitter", false, kOffOn, 0, 0};
+const Setting kObjectMotion = {"present_upscaler_object_motion", false, kOffOn, 0, 0};
+const Setting kShadowMotion = {"present_upscaler_shadow_motion", false, kOffOn, 0, 0};
+const Setting kDecalMotion = {"present_upscaler_decal_motion", false, kOffOn, 0, 0};
+// Lossless Scaling frame generation (shiftglue-sdk vulkan_lsfg.cpp), from the player's own
+// Lossless.dll in state/lsfg.
+const Setting kLsfg = {"lsfg_multiplier",
+                       false,
+                       {{"OFF", "1"}, {"2X", "2"}, {"3X", "3"}, {"4X", "4"}},
+                       0,
+                       0};
+const Setting kLsfgMode = {
+    "lsfg_performance", false, {{"QUALITY", "false"}, {"PERFORMANCE", "true"}}, 0, 0};
+const Setting kLsfgFlow = {"lsfg_flow_scale",
+                           false,
+                           {{"25 %", "25"}, {"50 %", "50"}, {"75 %", "75"}, {"100 %", "100"}},
+                           0,
+                           0};
+const Setting kHitchLog = {
+    "present_log_hitches", false, {{"OFF", "0"}, {"ON", "40"}}, 0, 0};
+#endif
+
 // Every setting but the frame rate, the resolution scale and the upscaler's.
 const Setting* const kPresetSettings[] = {
     &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy, &kSceneryShadows, &kReflectionUpdates,
@@ -115,10 +279,19 @@ const Setting* const kPresetSettings[] = {
 constexpr size_t kPresetSettingCount = std::size(kPresetSettings);
 
 const Setting* const kSettings[] = {
-    &kFrameRate, &kVsync, &kScale, &kUpscaler, &kDlssPreset, &kSharpness, &kPostAa,
-    &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
+    &kFrameRate, &kVsync, &kScale, &kUpscaler, &kDlssPreset, &kSharpness, &kFrameGeneration,
+    &kHud, &kPostAa, &kShowroomMsaa, &kRaceMsaa, &kAnisotropy,
     &kSceneryShadows, &kReflectionUpdates, &kDetail, &kMirror, &kBloom, &kSoftParticles, &kCrowds,
-    &kMotionBlur, &kDepthOfField, &kCarDirt};
+    &kMotionBlur, &kDepthOfField, &kCarDirt, &kLightingBloom, &kLightingBloomThreshold,
+    &kLightingExposure, &kLightingSaturation, &kCockpitAmbient, &kCockpitShadowLift, &kHdr,
+    &kHdrPeak, &kHdrPaperWhite, &kHdrGamma, &kHdrShadowLift
+#if defined(__ANDROID__)
+    , &kGpuDriver, &kGpuDriverMode, &kShadowMapSize, &kResolveToTextures, &kDirectResolves,
+    &kSpecializedEdram, &kAsyncEdram, &kBandReloads, &kLayerReloads, &kSelectiveReset,
+    &kStencilExport, &kSignShaders, &kFpsCounter, &kSgsr2Fast, &kCameraMotion, &kJitter,
+    &kObjectMotion, &kShadowMotion, &kDecalMotion, &kLsfg, &kLsfgMode, &kLsfgFlow, &kHitchLog
+#endif
+};
 
 struct Preset {
   const char* label;
@@ -168,7 +341,8 @@ const RowText kRows[] = {
      "Renders the game at a multiple of 1280x720: sharper edges and textures, more GPU load."},
     {"UPSCALER", &kUpscaler,
      "Upscales the picture from the resolution scale to your display. DLSS (NVIDIA RTX GPUs), "
-     "FSR 4 (AMD Radeon RX 6000 or later and recent Ryzen APUs), FSR 2 and FSR 3 (any GPU) use "
+     "FSR 4 (AMD Radeon RX 6000 or later and recent Ryzen APUs), FSR 2 and FSR 3 (any GPU) and "
+     "GSR 2 (Snapdragon's, light, best on Adreno phones and handhelds) use "
      "the game's depth and motion and smooth edges themselves: "
      "while one runs, MSAA and post AA are off, the MSAA change from the next screen. FSR 1 "
      "(any GPU, light) upscales and sharpens the finished picture, after MSAA and post AA. Off "
@@ -180,6 +354,16 @@ const RowText kRows[] = {
     {"SHARPNESS", &kSharpness,
      "Sharpens the picture after the upscaler. Off leaves the picture of DLSS, FSR 2, FSR 3 "
      "or FSR 4 as it is; FSR 1 always sharpens a little."},
+    {"FRAME GENERATION", &kFrameGeneration,
+     "AMD FSR frame generation: one generated frame between each two the game renders, for "
+     "smoother motion at about one frame more input latency. Runs with FSR 2, FSR 3 or FSR 4 "
+     "and pauses while a menu like this one is open. It presents through Vulkan, not DXGI, so "
+     "tools that need DXGI frames (Lossless Scaling, AFMF) do not see them."},
+    {"HUD", &kHud,
+     "How the HUD and menus reach your display while DLSS, FSR 2, FSR 3 or FSR 4 upscales. "
+     "Upscaled stretches them from the resolution scale, as before. Native draws them a second "
+     "time at the display's resolution: sharp text, gauges and menus, for a little more GPU "
+     "work."},
     {"GRAPHICS PRESET", nullptr,
      "Sets every setting below. Console is the game as on the console; "
      "High raises most, adds FXAA and uses 2x MSAA everywhere; Ultra also raises the level of "
@@ -235,9 +419,115 @@ const RowText kRows[] = {
      "Applies from the next screen."},
     {"CAR DIRT", &kCarDirt,
      "The dirt cars gather in a race. Off leaves cars clean."},
+    {"BLOOM STRENGTH", &kLightingBloom,
+     "How strongly bright parts glow, against each track's own bloom. Off leaves no glow; "
+     "Game is the track as made.",
+     true},
+    {"BLOOM THRESHOLD", &kLightingBloomThreshold,
+     "How bright a part must be to glow, against each track's own threshold. Higher keeps "
+     "the glow to the sun, lights and reflections; lower spreads it."},
+    {"EXPOSURE", &kLightingExposure,
+     "Brightens or darkens the picture by stops after the game's own eye adaptation: +1 EV "
+     "is twice as bright."},
+    {"SATURATION", &kLightingSaturation,
+     "Colour strength against each track's. Most tracks take 15% of the colour away; Full "
+     "Colour gives it back there."},
+    {"COCKPIT AMBIENT", &kCockpitAmbient,
+     "The light from the surroundings on the cockpit's headliner, pillars and trim: higher "
+     "brings them out of the shade. Only the cars' own materials change (other cars' shaded "
+     "sides too), never the track."},
+    {"COCKPIT SHADOW LIFT", &kCockpitShadowLift,
+     "Brings the cockpit's dark parts (the dash, the wheel, black trim) out of the dark, on "
+     "the cars alone: dark materials gain the most, light ones barely change, the track "
+     "never."},
+    {"HDR", &kHdr,
+     "Sends the picture to an HDR display (Windows HDR on). Bright skies, lights and "
+     "reflections go past SDR white, up to the peak brightness below; the HUD and menus stay "
+     "at the paper white.",
+     true},
+    {"HDR PEAK BRIGHTNESS", &kHdrPeak,
+     "The brightest your display shows. Set it to your display's peak: higher clips "
+     "highlights, lower dims them."},
+    {"HDR PAPER WHITE", &kHdrPaperWhite,
+     "How bright SDR white, the HUD and the menus are. 200 nits suits most rooms; lower in "
+     "the dark."},
+    {"HDR GAMMA", &kHdrGamma,
+     "How dark the shadows are on an HDR display. 2.2 is a usual SDR display; 2.0 is how the "
+     "game encodes its picture, with more detail in the shadows; sRGB lifts the darkest shades "
+     "most, as Windows shows SDR content; 2.4 is darker, for a dark room."},
+    {"HDR SHADOW LIFT", &kHdrShadowLift,
+     "Brings out the darkest parts (cockpits, tunnels) without raising the paper white: they "
+     "get up to this much brighter, while mid tones barely move and the highlights not at "
+     "all, so the picture keeps its contrast."},
 };
 
+#if defined(__ANDROID__)
+const RowText kAndroidRows[] = {
+    {"GPU DRIVER", &kGpuDriver,
+     "The Vulkan driver, from the next start. Auto: Turnip V37 on Snapdragon. System: the "
+     "device's own. Turnip V39 and V37: Mesa builds, usually the fastest."},
+    {"TURNIP MODE", &kGpuDriverMode,
+     "How a Mesa driver renders, from the next start. Default lets it choose; GMEM renders in "
+     "tiles on chip (less memory traffic, less power); SYSMEM straight to memory."},
+    {"CAR SHADOW MAP", &kShadowMapSize,
+     "The cars' shadow map size, from the next start. Auto is 768 with a temporal upscaler "
+     "(GSR 2, FSR 2/3), else 512; 512 is the console's and cheaper.",
+     true},
+    {"RESOLVE TO TEXTURES", &kResolveToTextures,
+     "Write EDRAM resolves straight into the textures that read them, saving a copy. Live."},
+    {"DIRECT RESOLVES", &kDirectResolves,
+     "Let resolves also overwrite outdated textures they cover whole. Live."},
+    {"SPECIALIZED EDRAM", &kSpecializedEdram,
+     "Resolves and EDRAM transfers with pipelines made for their formats: faster. Live."},
+    {"ASYNC EDRAM BUILDS", &kAsyncEdram,
+     "Build those specialized pipelines in the background. From the next start."},
+    {"PARTIAL RELOADS", &kBandReloads,
+     "Reload only the changed rows of a texture the GPU wrote to. Live."},
+    {"LAYER RELOADS", &kLayerReloads,
+     "Reload only the changed faces of cube and array textures. Live."},
+    {"SELECTIVE REBIND", &kSelectiveReset, "Rebind only the textures that changed. Live."},
+    {"STENCIL EXPORT", &kStencilExport,
+     "Copy depth and stencil in one pass. From the next start."},
+    {"SIGN SHADERS", &kSignShaders,
+     "Compile each pipeline for the bound textures' formats: faster shaders, more pipelines "
+     "to build. From the next start."},
+    {"FPS COUNTER", &kFpsCounter, "The game's own frame counter, from the next start.", true},
+    {"GSR 2 MODE", &kSgsr2Fast,
+     "Full: Qualcomm's compute GSR 2. Fast: the algorithm of its fragment variant, made for "
+     "phones: fewer taps and no colour pass, a little softer. Live."},
+    {"CAMERA MOTION", &kCameraMotion,
+     "Temporal upscalers: read the game's camera for the motion of the scene. Off, the "
+     "upscaler sees no motion at all. Live."},
+    {"JITTER", &kJitter,
+     "Temporal upscalers: shift the scene by a sub-pixel offset each frame, for detail. Live."},
+    {"OBJECT MOTION", &kObjectMotion,
+     "Temporal upscalers: the motion of each car and moving object, not only the camera's. "
+     "Live."},
+    {"SHADOW MOTION", &kShadowMotion,
+     "Temporal upscalers: fix the history under the car's ground shadow. Live."},
+    {"DECAL MOTION", &kDecalMotion,
+     "Temporal upscalers: other cars' ground shadows move with the cars. Live."},
+    {"LSFG", &kLsfg,
+     "Lossless Scaling frame generation: generated frames between the rendered ones, e.g. 40 "
+     "fps times 3 on the 120 Hz screen. Needs Lossless.dll in state/lsfg; not over menus. "
+     "Live."},
+    {"LSFG MODE", &kLsfgMode,
+     "Quality or performance networks: performance is lighter, a little less accurate. Live."},
+    {"LSFG FLOW SCALE", &kLsfgFlow,
+     "The resolution the motion between frames is found at: lower is faster, coarser. Live."},
+    {"HITCH LOG", &kHitchLog,
+     "Write each frame longer than 40 ms to state/logs/runtime.log, for diagnosis. Live."},
+};
+#endif
+
 const RowText& Text(const char* label) {
+#if defined(__ANDROID__)
+  for (const RowText& row : kAndroidRows) {
+    if (std::string_view(row.label) == label) {
+      return row;
+    }
+  }
+#endif
   for (const RowText& row : kRows) {
     if (std::string_view(row.label) == label) {
       return row;
@@ -488,6 +778,7 @@ std::string UpscalerName(const Draft& draft, const GraphicsPageServices& service
       return std::string();
     }
     return effect == "dlss"   ? "DLSS"
+           : effect == "gsr2" ? "GSR 2"
            : effect == "fsr4" ? "FSR 4"
            : effect == "fsr3" ? "FSR 3"
                               : "FSR 2";
@@ -635,7 +926,9 @@ void ApplyNext(Draft& draft, const GraphicsPageServices& services) {
   }
   const Setting* setting = draft.queue.front();
   draft.queue.erase(draft.queue.begin());
-  SetLive(*setting, draft.values.at(setting));
+  if (!setting->restart) {
+    SetLive(*setting, draft.values.at(setting));
+  }
   draft.values.erase(setting);
   if (setting == &kScale || setting == &kUpscaler || setting == &kVsync) {
     draft.settling = setting;
@@ -818,6 +1111,54 @@ void LimitFrameRateToDisplay(uint32_t refresh_hz) {
               refresh_hz);
 }
 
+// The page around its rows: SAVE & APPLY, leaving with unapplied changes, the status line
+// and the queued settings applied one per frame.
+static std::unique_ptr<MenuScreen> FinishPage(const char* title, std::vector<MenuRow> rows,
+                                       const std::shared_ptr<Draft>& draft,
+                                       config::HostConfig& config,
+                                       const GraphicsPageServices& services) {
+  auto screen = std::make_unique<MenuScreen>(title, std::move(rows));
+  screen->set_apply([draft, &config] { SaveAndApply(*draft, config); });
+  // Unapplied changes keep the page open once; leaving again discards them.
+  screen->set_leave([draft] {
+    if (draft->busy()) {
+      return false;
+    }
+    if (draft->values.empty() || draft->leave_warned) {
+      return true;
+    }
+    draft->leave_warned = true;
+    return false;
+  });
+  screen->set_status([draft] {
+    if (draft->busy()) {
+      if (draft->settling == &kScale &&
+          std::chrono::steady_clock::now() - draft->set_at >= kShaderBuildShown) {
+        return hostui::MenuStatus{
+            .text = "BUILDING SHADERS FOR " + Label(kScale, Find(kScale, Live(kScale.name))) +
+                    ", FIRST TIME ONLY",
+            .busy = true};
+      }
+      return hostui::MenuStatus{.text = "APPLYING SETTINGS", .busy = true};
+    }
+    if (!draft->values.empty()) {
+      return hostui::MenuStatus{.text = "UNSAVED CHANGES", .warning = draft->leave_warned};
+    }
+    if (draft->applied) {
+      return hostui::MenuStatus{.text = "SETTINGS APPLIED. YOU CAN CONTINUE."};
+    }
+    return hostui::MenuStatus{};
+  });
+  screen->set_update([draft, services](bool closing) {
+    if (!closing) {
+      ApplyNext(*draft, services);
+    } else if (!draft->values.empty() && !draft->busy()) {
+      REXLOG_INFO("Graphics page: discarded {} unapplied changes", draft->values.size());
+    }
+  });
+  return screen;
+}
+
 std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
                                                GraphicsPageServices services) {
   auto draft = std::make_shared<Draft>();
@@ -885,6 +1226,20 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   sharpness.enabled = [draft, services] { return !UpscalerName(*draft, services).empty(); };
   rows.push_back(std::move(sharpness));
 
+  MenuRow frame_generation = Row("FRAME GENERATION", kFrameGeneration, draft);
+  frame_generation.enabled = [draft, services] {
+    const std::string upscaler = UpscalerName(*draft, services);
+    return !upscaler.empty() && upscaler != "FSR 1" && upscaler != "DLSS";
+  };
+  rows.push_back(std::move(frame_generation));
+
+  MenuRow hud = Row("HUD", kHud, draft);
+  hud.enabled = [draft, services] {
+    const std::string upscaler = UpscalerName(*draft, services);
+    return !upscaler.empty() && upscaler != "FSR 1";
+  };
+  rows.push_back(std::move(hud));
+
   MenuRow preset;
   preset.label = "GRAPHICS PRESET";
   preset.value = [draft] {
@@ -944,46 +1299,48 @@ std::unique_ptr<MenuScreen> CreateGraphicsPage(config::HostConfig& config,
   MenuRow car_dirt = Row("CAR DIRT", kCarDirt, draft);
   rows.push_back(std::move(car_dirt));
 
-  auto screen = std::make_unique<MenuScreen>("GRAPHICS", std::move(rows));
-  screen->set_apply([draft, &config] { SaveAndApply(*draft, config); });
-  // Unapplied changes keep the page open once; leaving again discards them.
-  screen->set_leave([draft] {
-    if (draft->busy()) {
-      return false;
-    }
-    if (draft->values.empty() || draft->leave_warned) {
-      return true;
-    }
-    draft->leave_warned = true;
-    return false;
-  });
-  screen->set_status([draft] {
-    if (draft->busy()) {
-      if (draft->settling == &kScale &&
-          std::chrono::steady_clock::now() - draft->set_at >= kShaderBuildShown) {
-        return hostui::MenuStatus{
-            .text = "BUILDING SHADERS FOR " + Label(kScale, Find(kScale, Live(kScale.name))) +
-                    ", FIRST TIME ONLY",
-            .busy = true};
-      }
-      return hostui::MenuStatus{.text = "APPLYING SETTINGS", .busy = true};
-    }
-    if (!draft->values.empty()) {
-      return hostui::MenuStatus{.text = "UNSAVED CHANGES", .warning = draft->leave_warned};
-    }
-    if (draft->applied) {
-      return hostui::MenuStatus{.text = "SETTINGS APPLIED. YOU CAN CONTINUE."};
-    }
-    return hostui::MenuStatus{};
-  });
-  screen->set_update([draft, services](bool closing) {
-    if (!closing) {
-      ApplyNext(*draft, services);
-    } else if (!draft->values.empty() && !draft->busy()) {
-      REXLOG_INFO("Graphics page: discarded {} unapplied changes", draft->values.size());
-    }
-  });
-  return screen;
+  return FinishPage("GRAPHICS", std::move(rows), draft, config, services);
 }
 
 }  // namespace fm4_static_recomp::ui
+
+namespace fm4_static_recomp::ui {
+
+std::unique_ptr<MenuScreen> CreateLightingPage(config::HostConfig& config,
+                                               GraphicsPageServices services) {
+  auto draft = std::make_shared<Draft>();
+  std::vector<MenuRow> rows;
+  for (const auto& [label, setting] :
+       {std::pair{"BLOOM STRENGTH", &kLightingBloom},
+        std::pair{"BLOOM THRESHOLD", &kLightingBloomThreshold},
+        std::pair{"EXPOSURE", &kLightingExposure},
+        std::pair{"SATURATION", &kLightingSaturation},
+        std::pair{"COCKPIT AMBIENT", &kCockpitAmbient},
+        std::pair{"COCKPIT SHADOW LIFT", &kCockpitShadowLift}, std::pair{"HDR", &kHdr},
+        std::pair{"HDR PEAK BRIGHTNESS", &kHdrPeak},
+        std::pair{"HDR PAPER WHITE", &kHdrPaperWhite}, std::pair{"HDR GAMMA", &kHdrGamma},
+        std::pair{"HDR SHADOW LIFT", &kHdrShadowLift}}) {
+    MenuRow row = Row(label, *setting, draft);
+    row.divider_above = std::string_view(label) == "HDR";
+    rows.push_back(std::move(row));
+  }
+  return FinishPage("LIGHTING", std::move(rows), draft, config, services);
+}
+
+}  // namespace fm4_static_recomp::ui
+
+#if defined(__ANDROID__)
+namespace fm4_static_recomp::ui {
+
+std::unique_ptr<MenuScreen> CreateAndroidPage(config::HostConfig& config,
+                                              GraphicsPageServices services) {
+  auto draft = std::make_shared<Draft>();
+  std::vector<MenuRow> rows;
+  for (const RowText& text : kAndroidRows) {
+    rows.push_back(Row(text.label, *text.setting, draft));
+  }
+  return FinishPage("ANDROID", std::move(rows), draft, config, services);
+}
+
+}  // namespace fm4_static_recomp::ui
+#endif
